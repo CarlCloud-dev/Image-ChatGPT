@@ -9,6 +9,112 @@ const appDir = path.join(outDir, "resources", "app");
 const preserveDir = path.join(outRoot, ".runtime-preserve");
 const runtimeDirs = ["browser_profile", "output", "config"];
 const cleanRuntime = process.argv.includes("--clean-runtime");
+const electronMirror = "https://npmmirror.com/mirrors/electron/";
+const electronBuilderMirror = "https://npmmirror.com/mirrors/electron-builder-binaries/";
+
+function walkFiles(dir, visitor) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(fullPath, visitor);
+    } else {
+      visitor(fullPath);
+    }
+  }
+}
+
+function findElectronZip(version) {
+  const zipName = `electron-v${version}-win32-x64.zip`;
+  const roots = [
+    process.env.electron_config_cache,
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "electron", "Cache") : null,
+  ].filter(Boolean);
+
+  for (const cacheRoot of roots) {
+    let found = null;
+    walkFiles(cacheRoot, (filePath) => {
+      if (!found && path.basename(filePath) === zipName) found = filePath;
+    });
+    if (found) return found;
+  }
+  return null;
+}
+
+function repairElectronRuntime(electronDist, electronExe) {
+  if (fs.existsSync(electronExe)) return;
+
+  const electronPackage = require(path.join(root, "node_modules", "electron", "package.json"));
+  const zipPath = findElectronZip(electronPackage.version);
+  if (!zipPath) return;
+
+  console.log("[deps] electron runtime incomplete; extracting cached electron zip");
+  fs.rmSync(electronDist, { recursive: true, force: true });
+  fs.mkdirSync(electronDist, { recursive: true });
+  const result = spawnSync("tar", ["-xf", zipPath, "-C", electronDist], {
+    cwd: root,
+    stdio: "inherit",
+    shell: false,
+  });
+  if (result.status !== 0) {
+    const detail = result.error ? ` ${result.error.message || result.error}` : "";
+    throw new Error(`Cannot extract cached Electron runtime.${detail}`);
+  }
+  fs.writeFileSync(path.join(root, "node_modules", "electron", "path.txt"), "electron.exe", "utf8");
+}
+
+function ensureDependencies() {
+  const electronDist = path.join(root, "node_modules", "electron", "dist");
+  const electronExe = path.join(electronDist, "electron.exe");
+  const electronInstallScript = path.join(root, "node_modules", "electron", "install.js");
+  const playwrightCore = path.join(root, "node_modules", "playwright-core", "package.json");
+  if (fs.existsSync(electronExe) && fs.existsSync(playwrightCore)) return;
+
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  const npmCli = process.env.npm_execpath || path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+  const installEnv = {
+    ...process.env,
+    ELECTRON_MIRROR: process.env.ELECTRON_MIRROR || electronMirror,
+    ELECTRON_BUILDER_BINARIES_MIRROR: process.env.ELECTRON_BUILDER_BINARIES_MIRROR || electronBuilderMirror,
+  };
+  const runNpm = (args) => {
+    if (fs.existsSync(npmCli)) {
+      return spawnSync(process.execPath, [npmCli, ...args], {
+        cwd: root,
+        env: installEnv,
+        stdio: "inherit",
+        shell: false,
+        timeout: 10 * 60 * 1000,
+      });
+    }
+    return spawnSync(npmCmd, args, {
+      cwd: root,
+      env: installEnv,
+      stdio: "inherit",
+      shell: process.platform === "win32",
+      timeout: 10 * 60 * 1000,
+    });
+  };
+
+  console.log("[deps] node_modules missing; running npm install");
+  const result = runNpm(["install", "--foreground-scripts"]);
+  if (result.status !== 0) {
+    const detail = result.error ? ` ${result.error.message || result.error}` : "";
+    throw new Error(`npm install failed.${detail} Please run npm.cmd install manually, then build again. If Electron download is slow, set ELECTRON_MIRROR=${electronMirror}`);
+  }
+  if (!fs.existsSync(electronExe) && fs.existsSync(electronInstallScript)) {
+    console.log("[deps] electron runtime missing; running npm rebuild electron");
+    const rebuild = runNpm(["rebuild", "electron", "--foreground-scripts"]);
+    if (rebuild.status !== 0) {
+      const detail = rebuild.error ? ` ${rebuild.error.message || rebuild.error}` : "";
+      throw new Error(`npm rebuild electron failed.${detail} Please run npm.cmd rebuild electron manually, then build again. If Electron download is slow, set ELECTRON_MIRROR=${electronMirror}`);
+    }
+  }
+  repairElectronRuntime(electronDist, electronExe);
+  if (!fs.existsSync(electronExe) || !fs.existsSync(playwrightCore)) {
+    throw new Error("Dependencies are still missing after npm install.");
+  }
+}
 
 function copy(src, dest) {
   fs.cpSync(src, dest, {
@@ -71,6 +177,7 @@ function buildWindowControl() {
   }
 }
 
+ensureDependencies();
 buildWindowControl();
 
 console.log("[clean]", outDir);

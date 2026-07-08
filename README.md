@@ -63,6 +63,8 @@ run.bat
 npm.cmd run build
 ```
 
+如果本地没有 `node_modules/`，构建脚本会自动执行 `npm.cmd install`；首次构建需要联网下载依赖。
+
 产物位置：
 
 ```text
@@ -82,6 +84,8 @@ dist-electron/Image-ChatGPT-win32-x64/Image-ChatGPT.exe
 ```bat
 npm.cmd run build:clean
 ```
+
+`build:clean` 同样会在缺少依赖时自动安装依赖。
 
 如果需要单文件便携 exe，并且网络能访问 electron-builder 辅助二进制：
 
