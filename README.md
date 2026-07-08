@@ -1,6 +1,6 @@
 # Image-ChatGPT
 
-> Codex 用户，别把时间浪费在反复打开网页、复制提示词、下载图片上。
+> Codex 用户，别浪费ChatGpt网页版的额度，更便捷方便队列方式使用你的ChatGPT额度生成图片，自动保存在本地。
 >
 > Image-ChatGPT 是一个本地桌面工具，用 Electron + Node Playwright 控制你自己的 ChatGPT 网页版，让单图、批量出图和图生图排队自动跑起来。
 
