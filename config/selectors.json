@@ -1,0 +1,123 @@
+{
+  "_comment": "ChatGPT 网页版 DOM 选择器配置。如果某天工具报'找不到输入框'之类错误,99% 是这里的选择器失效了——打开 ChatGPT 页面,右键检查元素,把新选择器填进来即可,不用动代码。多个候选用数组,按顺序尝试。",
+
+  "chatgpt_url": "https://chatgpt.com/",
+  "login_url": "https://chatgpt.com/auth/login",
+
+  "new_chat_url": "https://chatgpt.com/?model=auto",
+
+  "composer": {
+    "_comment": "底部输入框。ChatGPT 用 contenteditable 的 div 做 composer,不是 <textarea>",
+    "selectors": [
+      "#composer-background [contenteditable='true']",
+      "div[contenteditable='true']",
+      "textarea[data-id='root']",
+      "textarea"
+    ]
+  },
+
+  "send_button": {
+    "_comment": "发送按钮。GPT-4o 时代是右下角带箭头的 button[data-testid]",
+    "selectors": [
+      "button[data-testid='send-button']",
+      "button[aria-label*='发送']",
+      "button[aria-label*='Send']",
+      "div#composer-background button:last-of-type"
+    ]
+  },
+
+  "attachment_file_input": {
+    "_comment": "图片/附件上传 input。Playwright 可直接 setInputFiles 到隐藏 input。",
+    "selectors": [
+      "input[type='file'][accept*='image']",
+      "input[type='file'][accept*='png']",
+      "input[type='file'][accept*='jpg']",
+      "input[type='file'][multiple]",
+      "input[type='file']"
+    ]
+  },
+
+  "attachment_button": {
+    "_comment": "如果 file input 尚未出现在 DOM,先点附件/加号按钮。",
+    "selectors": [
+      "button[data-testid='composer-plus-btn']",
+      "button[aria-label*='附加']",
+      "button[aria-label*='上传']",
+      "button[aria-label*='添加']",
+      "button[aria-label*='Attach']",
+      "button[aria-label*='Upload']",
+      "button[aria-label*='Add']"
+    ]
+  },
+
+  "attachment_uploading": {
+    "_comment": "上传中状态兜底检测。匹配不到时会按固定等待时间继续。",
+    "selectors": [
+      "[aria-label*='上传中']",
+      "[aria-label*='正在上传']",
+      "[aria-label*='Uploading']",
+      "[data-testid*='upload']",
+      "[class*='upload']"
+    ]
+  },
+
+  "conversation_container": {
+    "_comment": "对话主区域,用来界定'新一轮回复'的查找范围",
+    "selectors": [
+      "main [class*='react-scroll-to-bottom']",
+      "main",
+      "#main"
+    ]
+  },
+
+  "generating_indicator": {
+    "_comment": "生成中指示器(停止按钮)。存在=正在生成,消失=生成结束。注意:不要再加 [role='status'][aria-live] 之类过宽的选择器——aria-live 通知区一直存在会误判为还在生成。",
+    "selectors": [
+      "button[data-testid='stop-button']",
+      "button[aria-label*='停止生成']",
+      "button[aria-label*='Stop generating']"
+    ]
+  },
+
+  "image_in_message": {
+    "_comment": "消息内的生成图片。ChatGPT 现在的图 src 形如 chatgpt.com/backend-api/estuary/content?id=file_...;旧版是 oaiusercontent.com。代码里还会按渲染尺寸过滤掉头像/小图标",
+    "selectors": [
+      "img[src*='estuary/content']",
+      "img[src*='oaiusercontent']",
+      "img[src*='files.oaiusercontent']",
+      "img[src*='backend-api']"
+    ]
+  },
+
+  "download_button": {
+    "_comment": "悬停在图片上才出现的下载按钮(备选下载方式)。我们默认直接抓 img.src 下载,这里仅兜底",
+    "selectors": [
+      "button[aria-label*='下载']",
+      "button[aria-label*='Download']"
+    ]
+  },
+
+  "timing": {
+    "_comment": "等待时间(秒)",
+    "page_load_timeout": 60,
+    "generation_timeout": 300,
+    "image_appear_poll_interval": 1.5,
+    "after_send_settle": 2,
+    "after_upload_settle": 3,
+    "upload_timeout": 45
+  },
+
+  "batch": {
+    "concurrency": 1,
+    "_comment": "并发数。网页版 ChatGPT 同时开多对话易触发风控,默认 1(顺序)。想加速最多开到 2"
+  },
+
+  "browser": {
+    "use_cdp": true,
+    "chrome_path": "",
+    "cdp_port": 9222,
+    "headless": false,
+    "channel": "",
+    "_comment": "use_cdp:true=用 subprocess 启动系统 Chrome + CDP 连接(推荐,过 Google OAuth + CF);false=用 Playwright launch_persistent_context(Google OAuth 会拦)。chrome_path:系统 Chrome 路径,留空自动检测。cdp_port:Chrome 调试端口。headless:true=后台模式(窗口最小化+移到屏幕外),false=可见。channel:仅 use_cdp=false 时生效。"
+  }
+}

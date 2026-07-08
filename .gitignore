@@ -1,0 +1,24 @@
+# runtime state
+browser_profile/
+output/
+config/chat_state.json
+config/queue_state.json
+logs/
+
+# Electron / Node
+node_modules/
+dist-electron/
+electron/bin/
+tools/window-control/bin/
+tools/window-control/obj/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local leftovers
+CarlMusic-dev/
+.agents/
+.env
+.DS_Store
+Thumbs.db

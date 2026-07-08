@@ -1,0 +1,46 @@
+{
+  "name": "image-chatgpt",
+  "version": "1.0.0",
+  "description": "Electron desktop app that drives ChatGPT web image generation through Node Playwright CDP.",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check electron/paths.js && node --check electron/logger.js && node --check electron/chatgptDriver.js && node --check electron/queueManager.js && node --check renderer/app.js",
+    "build": "node scripts/build-win-dir.js",
+    "build:clean": "node scripts/build-win-dir.js --clean-runtime",
+    "build:portable": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "playwright-core": "^1.54.2"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "local.image-chatgpt",
+    "productName": "Image-ChatGPT",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "renderer/**/*",
+      "config/selectors.json",
+      "config/styles.json",
+      "prompts/**/*",
+      "web-image-100.ico",
+      "web-image-100.png",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "icon": "web-image-100.ico",
+      "target": [
+        "dir",
+        "portable"
+      ]
+    }
+  }
+}
