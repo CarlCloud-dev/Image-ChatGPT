@@ -399,13 +399,15 @@ class ChatGPTDriver {
       "--remote-debugging-address=127.0.0.1",
       `--remote-debugging-port=${port}`,
       `--user-data-dir=${profileDir}`,
+      "--new-window",
       `--window-size=${bounds.width},${bounds.height}`,
       `--window-position=${position}`,
       "--no-first-run",
       "--no-default-browser-check",
+      "--disable-features=TranslateUI",
       "--disable-session-crashed-bubble",
       "--hide-crash-restore-bubble",
-      initialUrl,
+      "--disable-restore-tab-session",
     ];
     const child = spawn(executablePath, args, { stdio: "ignore", windowsHide: false });
     this.browserProcess = child;
