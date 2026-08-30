@@ -912,6 +912,66 @@ class ChatGPTDriver {
     await this.ensureAuthenticatedPageWindowControls();
   }
 
+  async composerInteractionState() {
+    return this.evaluate((composerSelectors) => {
+      const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
+      };
+      for (const selector of composerSelectors) {
+        const el = document.querySelector(selector);
+        if (!isVisible(el)) continue;
+        const style = window.getComputedStyle(el);
+        const disabled = Boolean(el.disabled)
+          || el.hasAttribute("disabled")
+          || el.getAttribute("aria-disabled") === "true"
+          || el.getAttribute("contenteditable") === "false"
+          || el.readOnly === true
+          || style.pointerEvents === "none";
+        return {
+          documentReady: document.readyState === "interactive" || document.readyState === "complete",
+          hasComposer: true,
+          writable: !disabled,
+        };
+      }
+      return {
+        documentReady: document.readyState === "interactive" || document.readyState === "complete",
+        hasComposer: false,
+        writable: false,
+      };
+    }, this.list("composer")).catch(() => ({ documentReady: false, hasComposer: false, writable: false }));
+  }
+
+  async waitForChatPageReady({ timeoutSec, minWaitSec = 0, stableRounds } = {}) {
+    await this.assertChatReady();
+    const timeout = Math.max(10, Number(timeoutSec) || this.timing("page_ready_timeout", 45));
+    const pollMs = Math.max(250, this.timing("page_ready_poll_interval", 0.75) * 1000);
+    const requiredStableRounds = Math.max(2, Math.floor(Number(stableRounds) || this.timing("page_ready_stable_rounds", 3)));
+    const deadline = Date.now() + timeout * 1000;
+    const notBefore = Date.now() + Math.max(0, Number(minWaitSec) || 0) * 1000;
+    let readyRounds = 0;
+    let lastState = null;
+
+    while (Date.now() < deadline) {
+      const state = await this.composerInteractionState();
+      const finished = await this.isGenerationFinished();
+      lastState = { ...state, finished };
+      if (Date.now() >= notBefore && state.documentReady && state.hasComposer && state.writable && finished) {
+        readyRounds += 1;
+        if (readyRounds >= requiredStableRounds) return;
+      } else {
+        readyRounds = 0;
+      }
+      await sleep(pollMs);
+    }
+    const detail = lastState
+      ? `documentReady=${lastState.documentReady}, composer=${lastState.hasComposer}, writable=${lastState.writable}, generationFinished=${lastState.finished}`
+      : "无法读取页面状态";
+    throw new Error(`ChatGPT 页面尚未恢复到可继续处理任务的状态(${detail})。请显示浏览器检查页面。`);
+  }
+
   async fillComposer(text) {
     const cleaned = String(text || "").replace(/[\r\n]+/g, " ").replace(/ {2,}/g, " ").trim();
     if (!cleaned) throw new Error("清洗后 prompt 为空");
@@ -1242,9 +1302,8 @@ class ChatGPTDriver {
     const start = Date.now();
     logger.info("generate.start", { jobId, hasName: !!name, inputImageCount: normalizeInputImages(inputImages).length });
     try {
-      if (progress) await progress("ready", "准备输入");
-      await sleep(this.timing("after_send_settle", 2) * 1000);
-      await this.assertChatReady();
+      if (progress) await progress("ready", "等待 ChatGPT 页面就绪");
+      await this.waitForChatPageReady({ minWaitSec: 1 });
       const uploadedImages = await this.uploadInputImages(inputImages, progress);
       const prevSrcs = await this.collectImageSrcs();
       const previousAssistantMessageCount = await this.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"], [data-message-author="assistant"]').length).catch(() => 0);
@@ -1253,6 +1312,18 @@ class ChatGPTDriver {
       const src = await this.waitForNewImage(prevSrcs, previousAssistantMessageCount);
       const saved = await this.downloadImage(src, jobId, prompt, name, queueIndex, queuePart);
       if (progress) await progress("image_done", "已保存图片");
+      if (progress) await progress("settling", "图片已保存，等待页面恢复");
+      try {
+        await this.waitForChatPageReady({
+          timeoutSec: this.timing("post_generation_timeout", 45),
+          minWaitSec: this.timing("post_generation_settle", 3),
+        });
+      } catch (e) {
+        // The image is already safely written. Do not mark that completed work
+        // as failed solely because ChatGPT is still rendering its post-response UI.
+        logger.warn("generate.post_image_page_not_ready", { jobId, error: e.message || String(e) });
+        if (progress) await progress("settling", "图片已保存；页面仍在恢复，下一任务会继续等待");
+      }
       this.setLastChatUrl(this.pageUrl());
       logger.info("generate.done", { jobId, imageCount: 1, elapsed: (Date.now() - start) / 1000 });
       return { success: true, image_paths: [saved], input_images: uploadedImages, elapsed: (Date.now() - start) / 1000 };

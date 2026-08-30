@@ -109,10 +109,15 @@
   "timing": {
     "_comment": "等待时间(秒)",
     "page_load_timeout": 60,
+    "page_ready_timeout": 45,
+    "page_ready_poll_interval": 0.75,
+    "page_ready_stable_rounds": 3,
     "generation_timeout": 300,
     "image_appear_poll_interval": 1.5,
     "send_confirm_timeout": 12,
     "no_image_response_delay": 15,
+    "post_generation_settle": 3,
+    "post_generation_timeout": 45,
     "after_send_settle": 2,
     "after_upload_settle": 3,
     "upload_timeout": 45
