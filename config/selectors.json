@@ -31,8 +31,7 @@
     "selectors": [
       "button[data-testid='send-button']",
       "button[aria-label*='发送']",
-      "button[aria-label*='Send']",
-      "div#composer-background button:last-of-type"
+      "button[aria-label*='Send']"
     ]
   },
 
@@ -112,6 +111,8 @@
     "page_load_timeout": 60,
     "generation_timeout": 300,
     "image_appear_poll_interval": 1.5,
+    "send_confirm_timeout": 12,
+    "no_image_response_delay": 15,
     "after_send_settle": 2,
     "after_upload_settle": 3,
     "upload_timeout": 45

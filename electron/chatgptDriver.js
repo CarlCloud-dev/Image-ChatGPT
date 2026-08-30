@@ -555,6 +555,34 @@ class ChatGPTDriver {
     throw new Error(`无选择器命中,试过: ${selectors.join(", ")}`);
   }
 
+  async tryEnabledSelectors(selectors, { timeout = 4000 } = {}) {
+    const deadline = Date.now() + timeout;
+    do {
+      for (const sel of selectors) {
+        try {
+          const state = await this.evaluate((selector) => {
+            const el = document.querySelector(selector);
+            if (!el) return { found: false, ready: false };
+            const style = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            const visible = style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
+            const disabled = Boolean(el.disabled)
+              || el.hasAttribute("disabled")
+              || el.getAttribute("aria-disabled") === "true"
+              || el.getAttribute("data-state") === "disabled"
+              || style.pointerEvents === "none";
+            return { found: true, ready: visible && !disabled };
+          }, sel);
+          if (state && state.found && state.ready) return { sel };
+        } catch {
+          // Invalid or stale selector; continue with the next candidate.
+        }
+      }
+      if (Date.now() < deadline) await sleep(180);
+    } while (Date.now() < deadline);
+    throw new Error(`无可用选择器命中,试过: ${selectors.join(", ")}`);
+  }
+
   async isSelectorVisible(selector) {
     try {
       const state = await this.evaluate((sel) => {
@@ -663,7 +691,14 @@ class ChatGPTDriver {
       el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
       return ok || String(el.innerText || el.textContent || "").includes(value.slice(0, 20));
     }, selector, text);
-    if (!inserted) throw new Error("无法向 ChatGPT 输入框写入提示词");
+    if (!inserted) throw new Error("ChatGPT 输入框未接受提示词，请显示浏览器检查页面状态。");
+    const actual = await this.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      return el ? String(el.innerText || el.textContent || el.value || "").trim() : "";
+    }, selector);
+    if (!actual.includes(text.slice(0, Math.min(text.length, 20)))) {
+      throw new Error("ChatGPT 输入框未写入提示词，请显示浏览器检查页面状态。");
+    }
   }
 
   async isLoggedIn({ start = true } = {}) {
@@ -956,13 +991,69 @@ class ChatGPTDriver {
     return files;
   }
 
-  async clickSend() {
+  safeSendButtonSelectors() {
+    // Older portable installations may retain their previous selectors.json.
+    // Never allow a positional fallback here: it can point at the attachment,
+    // microphone, or another composer button while the send control is disabled.
+    return this.list("send_button").filter((selector) => selector && selector !== "div#composer-background button:last-of-type");
+  }
+
+  async capturePromptSubmissionState(prompt) {
+    const expected = String(prompt || "").replace(/\s+/g, " ").trim().slice(0, 80).toLocaleLowerCase();
+    return this.evaluate((composerSelectors, expectedText) => {
+      const normalize = (value) => String(value || "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+      const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
+      };
+      let composerText = "";
+      for (const selector of composerSelectors) {
+        const el = document.querySelector(selector);
+        if (isVisible(el)) {
+          composerText = normalize(el.innerText || el.textContent || el.value || "");
+          break;
+        }
+      }
+      const userMessages = Array.from(document.querySelectorAll('[data-message-author-role="user"], [data-message-author="user"]'));
+      const userContainsExpected = expectedText.length > 0 && userMessages.slice(-3).some((el) => normalize(el.innerText || el.textContent || "").includes(expectedText));
+      return {
+        composerContainsExpected: expectedText.length > 0 && composerText.includes(expectedText),
+        userCount: userMessages.length,
+        userContainsExpected,
+      };
+    }, this.list("composer"), expected).catch(() => ({ composerContainsExpected: false, userCount: 0, userContainsExpected: false }));
+  }
+
+  async waitForPromptSubmission(beforeState, prompt) {
+    const timeoutSec = Math.max(8, this.timing("send_confirm_timeout", 12));
+    const deadline = Date.now() + timeoutSec * 1000;
+    while (Date.now() < deadline) {
+      const current = await this.capturePromptSubmissionState(prompt);
+      if (current.userContainsExpected || current.userCount > beforeState.userCount) return;
+      if (beforeState.composerContainsExpected && !current.composerContainsExpected) return;
+      if (!(await this.isGenerationFinished())) return;
+      await sleep(350);
+    }
+    throw new Error("ChatGPT 未确认收到提示词，已停止本次任务以避免误判为内容违规。请显示浏览器后重试。");
+  }
+
+  async clickSend(prompt) {
+    const beforeState = await this.capturePromptSubmissionState(prompt);
     await sleep(300);
+    let sentByButton = false;
     try {
-      const { sel } = await this.trySelectors(this.list("send_button"), { timeout: 8000 });
+      const selectors = this.safeSendButtonSelectors();
+      if (!selectors.length) throw new Error("未配置可靠的发送按钮选择器");
+      const { sel } = await this.tryEnabledSelectors(selectors, { timeout: 8000 });
       await this.clickSelector(sel);
-    } catch {
+      sentByButton = true;
+    } catch (e) {
+      logger.warn("chatgpt.send_button.unavailable", { error: e.message || String(e) });
       try {
+        const { sel } = await this.trySelectors(this.list("composer"), { timeout: 3000 });
+        await this.clickSelector(sel);
         await this.dispatchKey("Enter", "Enter", 13);
       } catch {
         await this.evaluate(() => {
@@ -972,6 +1063,36 @@ class ChatGPTDriver {
       }
     }
     await sleep(500);
+    await this.waitForPromptSubmission(beforeState, prompt);
+    logger.info("chatgpt.prompt_submitted", { sentByButton });
+  }
+
+  async submitPrompt(prompt, progress) {
+    const attempts = 3;
+    let lastError = null;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        if (attempt > 1) {
+          if (progress) await progress("sending", `未确认发送，正在重试 (${attempt}/${attempts})`);
+          await this.assertChatReady();
+          await sleep(800);
+        } else if (progress) {
+          await progress("typing", "输入提示词");
+        }
+        await this.fillComposer(prompt);
+        if (progress && attempt === 1) await progress("sending", "发送");
+        await this.clickSend(prompt);
+        return;
+      } catch (e) {
+        lastError = e;
+        const message = e && (e.message || String(e));
+        const canRetry = /未确认收到提示词|输入框未(?:接受|写入)提示词/.test(message || "");
+        if (!canRetry || attempt === attempts) throw e;
+        logger.warn("chatgpt.prompt_submission.retry", { attempt, error: message || "未知错误" });
+        await sleep(1200);
+      }
+    }
+    throw lastError || new Error("ChatGPT 未确认收到提示词。");
   }
 
   async collectImageSrcs() {
@@ -1028,32 +1149,29 @@ class ChatGPTDriver {
     return true;
   }
 
-  async getLastAiText() {
-    return this.evaluate(() => {
+  async getLastAiText(afterCount = 0) {
+    return this.evaluate((previousCount) => {
       const selectors = [
         '[data-message-author-role="assistant"]',
         '[data-message-author="assistant"]',
-        "article [class*='markdown']",
-        "div[class*='markdown']",
-        "div[class*='message'] [class*='content']",
       ];
       let blocks = [];
       for (const selector of selectors) {
         blocks = Array.from(document.querySelectorAll(selector));
         if (blocks.length) break;
       }
-      if (!blocks.length) blocks = Array.from(document.querySelectorAll("div"));
+      if (blocks.length <= Number(previousCount || 0)) return "";
       for (let i = blocks.length - 1; i >= 0; i -= 1) {
         const text = (blocks[i].innerText || "").trim();
         if (text.length > 15) return text.slice(0, 500);
       }
       return "";
-    }).catch(() => "");
+    }, afterCount).catch(() => "");
   }
 
-  async waitForNewImage(prevSrcs) {
+  async waitForNewImage(prevSrcs, previousAssistantMessageCount = 0) {
     const deadline = Date.now() + this.timing("generation_timeout", 300) * 1000;
-    const noImgCheckAfter = Date.now() + 5000;
+    const noImgCheckAfter = Date.now() + Math.max(12, this.timing("no_image_response_delay", 15)) * 1000;
     let noImgConfirm = 0;
     while (Date.now() < deadline) {
       const srcs = await this.collectImageSrcs();
@@ -1070,7 +1188,7 @@ class ChatGPTDriver {
         if (!anyLoaded && await this.isGenerationFinished()) {
           noImgConfirm += 1;
           if (noImgConfirm >= 2) {
-            const aiText = await this.getLastAiText();
+            const aiText = await this.getLastAiText(previousAssistantMessageCount);
             if (aiText && aiText.length > 5) {
               throw new Error(`ChatGPT 未生成图片(可能提示词违规或被拒绝)。ChatGPT 回复: ${aiText.slice(0, 200)}`);
             }
@@ -1128,13 +1246,11 @@ class ChatGPTDriver {
       await sleep(this.timing("after_send_settle", 2) * 1000);
       await this.assertChatReady();
       const uploadedImages = await this.uploadInputImages(inputImages, progress);
-      if (progress) await progress("typing", "输入提示词");
-      await this.fillComposer(prompt);
       const prevSrcs = await this.collectImageSrcs();
-      if (progress) await progress("sending", "发送");
-      await this.clickSend();
+      const previousAssistantMessageCount = await this.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"], [data-message-author="assistant"]').length).catch(() => 0);
+      await this.submitPrompt(prompt, progress);
       if (progress) await progress("generating", "等待图片生成");
-      const src = await this.waitForNewImage(prevSrcs);
+      const src = await this.waitForNewImage(prevSrcs, previousAssistantMessageCount);
       const saved = await this.downloadImage(src, jobId, prompt, name, queueIndex, queuePart);
       if (progress) await progress("image_done", "已保存图片");
       this.setLastChatUrl(this.pageUrl());
