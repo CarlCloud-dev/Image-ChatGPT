@@ -1,0 +1,464 @@
+[
+  {
+    "cat": "写实影像",
+    "items": [
+      {
+        "id": "style_0_0",
+        "name": "真实摄影",
+        "cover": "/static/style_covers/写实影像/真实摄影.webp",
+        "kw": "真实摄影风格，整体画面接近真实相机拍摄效果，主体比例自然，场景细节可信，材质纹理真实，色彩不过度夸张，保留现实世界的自然光线、空间层次和细节质感。realistic photography, lifelike details, natural proportions, authentic textures, realistic camera look, natural color rendering"
+      },
+      {
+        "id": "style_0_1",
+        "name": "真人写实",
+        "cover": "/static/style_covers/写实影像/真人写实.webp",
+        "kw": "真人写实影像风格，人物呈现接近真实真人拍摄效果，五官、肤色、发丝、服装和身体比例保持自然可信，避免过度美化和塑料感，整体具有真实生活中的人物存在感。realistic live-action look, lifelike human appearance, natural facial features, authentic skin tone, realistic hair and clothing details"
+      },
+      {
+        "id": "style_0_2",
+        "name": "电影写实",
+        "cover": "/static/style_covers/写实影像/电影写实.webp",
+        "kw": "电影写实影像风格，画面具有真实电影剧照质感，人物、场景和光影都保持自然可信，同时带有明显的叙事氛围和情绪张力，整体像一帧高质量真人电影画面。cinematic live-action realism, cinematic film still, realistic texture rendering, subtle filmic color grading, immersive narrative atmosphere"
+      },
+      {
+        "id": "style_0_3",
+        "name": "纪实摄影",
+        "cover": "/static/style_covers/写实影像/纪实摄影.webp",
+        "kw": "纪实摄影风格，画面像真实生活中被自然记录下来的瞬间，人物动作和环境细节不过度摆拍，保留现场感、随机性和真实情绪，整体自然、克制、可信。documentary photography, candid realism, unposed moment, authentic everyday details, natural environment, realistic human emotion"
+      },
+      {
+        "id": "style_0_4",
+        "name": "生活方式摄影",
+        "cover": "/static/style_covers/写实影像/生活方式摄影.webp",
+        "kw": "生活方式摄影风格，画面呈现自然、舒适、有生活气息的真实场景，人物状态轻松，环境细节温暖亲切，整体像高质量社交媒体生活照片，真实但有审美整理。lifestyle photography, natural candid moment, warm relatable atmosphere, realistic everyday details, authentic human story, polished but natural look"
+      },
+      {
+        "id": "style_0_5",
+        "name": "复古胶片",
+        "cover": "/static/style_covers/写实影像/复古胶片.webp",
+        "kw": "复古胶片摄影风格，画面带有模拟胶片的怀旧质感，色彩略微褪色，反差柔和，颗粒感自然，整体呈现旧照片、老电影或年代影像般的温柔记忆感。vintage analog film photography, soft contrast, muted colors, natural film grain, nostalgic tone, retro photographic texture"
+      },
+      {
+        "id": "style_0_6",
+        "name": "时尚大片",
+        "cover": "/static/style_covers/写实影像/时尚大片.webp",
+        "kw": "时尚大片摄影风格，画面具有高级杂志与时装广告的视觉质感，人物造型精致，姿态自信，整体构图考究，呈现优雅、精修、具有品牌审美的现实影像效果。editorial fashion photography, premium magazine visual, refined styling, elegant realistic look, polished composition, high-end fashion aesthetic"
+      },
+      {
+        "id": "style_0_7",
+        "name": "商业广告摄影",
+        "cover": "/static/style_covers/写实影像/商业广告摄影.webp",
+        "kw": "商业广告摄影风格，整体画面干净、精致、具有品牌宣传质感，主体呈现清晰突出，视觉表达有商业完成度，色彩和细节经过审美优化，适合用于广告、海报和产品宣传。commercial advertising photography, clean polished image, premium brand visual, refined presentation, realistic details, professional commercial look"
+      },
+      {
+        "id": "style_0_8",
+        "name": "城市街拍",
+        "cover": "/static/style_covers/写实影像/城市街拍.webp",
+        "kw": "城市街拍摄影风格，画面具有真实城市街头的即时感，人物与环境自然融合，保留街道、人群、建筑和环境光带来的生活气息，整体像摄影师在城市中捕捉到的真实瞬间。street photography, spontaneous candid moment, realistic urban atmosphere, natural ambient light, authentic lifestyle feeling, everyday city realism"
+      },
+      {
+        "id": "style_0_9",
+        "name": "手机随拍感",
+        "cover": "/static/style_covers/写实影像/手机随拍感.webp",
+        "kw": "真实手机随拍风格，画面像普通人用手机随手拍下的真实照片，构图不过度专业，保留自然瑕疵和生活现场感，整体更接近社交媒体、聊天记录或日常相册中的真实影像。casual smartphone photography, everyday realism, spontaneous snapshot feeling, natural imperfections, unpolished look, authentic phone camera image"
+      },
+      {
+        "id": "style_0_10",
+        "name": "专业肖像摄影",
+        "cover": "/static/style_covers/写实影像/专业肖像摄影.webp",
+        "kw": "专业肖像摄影风格，画面突出人物面部与气质，五官、表情、肤质和眼神表现自然清晰，整体具有正式、干净、可信的高质量人像摄影效果。professional portrait photography, realistic skin texture, natural facial expression, clear facial features, refined portrait look, elegant editorial quality"
+      },
+      {
+        "id": "style_0_11",
+        "name": "产品棚拍",
+        "cover": "/static/style_covers/写实影像/产品棚拍.webp",
+        "kw": "高端产品棚拍摄影风格，主体产品清晰突出，画面干净有序，材质、边缘、反光和细节呈现精准，整体具有专业摄影棚拍摄的商业质感。premium studio product photography, clean realistic presentation, precise material detail, polished commercial look, controlled studio image, high-end product visual"
+      }
+    ]
+  },
+  {
+    "cat": "动漫插画",
+    "items": [
+      {
+        "id": "style_1_0",
+        "name": "日系动漫",
+        "cover": "/static/style_covers/动漫插画/日系动漫.webp",
+        "kw": "日系动漫风格，画面具有精致的二次元动画质感，人物五官清晰，线条干净，色彩明亮协调，整体呈现高质量动画番剧画面效果。Japanese anime style, clean line art, expressive anime character design, vibrant colors, polished 2D animation look, high-quality anime visual"
+      },
+      {
+        "id": "style_1_1",
+        "name": "国漫插画",
+        "cover": "/static/style_covers/动漫插画/国漫插画.webp",
+        "kw": "国漫插画风格，画面融合东方审美与现代动画表现，人物造型精致，色彩层次丰富，整体具有高质量国产动画与东方幻想插画质感。Chinese animation illustration style, refined character design, elegant oriental aesthetics, rich color layers, polished 2D illustration, modern Chinese fantasy visual"
+      },
+      {
+        "id": "style_1_2",
+        "name": "电影级动画插画",
+        "cover": "/static/style_covers/动漫插画/电影级动画插画.webp",
+        "kw": "电影级动画插画风格，画面具有动画电影般的完整度和叙事感，角色、场景和光影呈现精致统一的二维动画质感，整体画面细腻、戏剧化、有视觉冲击力。cinematic animated illustration, high-end 2D animation visual, dramatic composition, polished character and environment design, immersive animated movie atmosphere"
+      },
+      {
+        "id": "style_1_3",
+        "name": "赛璐璐动画",
+        "cover": "/static/style_covers/动漫插画/赛璐璐动画.webp",
+        "kw": "赛璐璐动画风格，画面使用清晰线稿与平涂色块，阴影边界明确，角色轮廓干净，整体呈现经典二维动画分镜般的清爽视觉效果。cel animation style, clean outlines, flat color shading, sharp shadow shapes, classic 2D animated look, crisp anime frame visual"
+      },
+      {
+        "id": "style_1_4",
+        "name": "轻小说封面",
+        "cover": "/static/style_covers/动漫插画/轻小说封面.webp",
+        "kw": "轻小说封面插画风格，人物形象突出，角色设计精致，画面色彩明快，整体具有日系轻小说封面般的青春感、幻想感和商业插画完成度。light novel cover illustration, polished anime character art, bright appealing colors, detailed character design, fantasy atmosphere, commercial anime illustration look"
+      },
+      {
+        "id": "style_1_5",
+        "name": "漫画分镜",
+        "cover": "/static/style_covers/动漫插画/漫画分镜.webp",
+        "kw": "漫画分镜风格，画面强调线条表现、动态构图和故事节奏，整体像一格高完成度漫画画面，具有明确的情绪表达和叙事张力。comic panel illustration, dynamic line art, expressive character acting, strong storytelling composition, manga-inspired visual, dramatic panel framing"
+      },
+      {
+        "id": "style_1_6",
+        "name": "厚涂插画",
+        "cover": "/static/style_covers/动漫插画/厚涂插画.webp",
+        "kw": "厚涂插画风格，画面具有细腻的数字绘画质感，色彩过渡柔和，角色和场景层次丰富，整体呈现精致、饱满、有绘画笔触感的高质量插画效果。digital painting illustration, painterly rendering, soft color blending, rich visual layers, detailed character and environment, polished concept art look"
+      },
+      {
+        "id": "style_1_7",
+        "name": "儿童绘本",
+        "cover": "/static/style_covers/动漫插画/儿童绘本.webp",
+        "kw": "儿童绘本插画风格，画面温暖柔和，造型可爱亲切，色彩明亮干净，整体具有童话故事书般的温柔想象力和治愈氛围。children's storybook illustration, soft friendly shapes, warm colors, gentle whimsical atmosphere, cute hand-drawn look, cozy illustrated world"
+      },
+      {
+        "id": "style_1_8",
+        "name": "扁平插画",
+        "cover": "/static/style_covers/动漫插画/扁平插画.webp",
+        "kw": "扁平插画风格，画面使用简洁形状、干净线条和明确色块，视觉表达清爽直观，整体具有现代设计感和轻量化商业插画质感。flat illustration style, simple clean shapes, minimal line work, clear color blocks, modern graphic design look, clean vector-like visual"
+      },
+      {
+        "id": "style_1_9",
+        "name": "欧美漫画",
+        "cover": "/static/style_covers/动漫插画/欧美漫画.webp",
+        "kw": "欧美漫画风格，画面具有强烈线条、夸张动态和鲜明明暗对比，人物造型有力量感，整体呈现美式漫画封面般的视觉张力。western comic book style, bold ink lines, dynamic poses, strong contrast, expressive characters, graphic comic cover visual"
+      },
+      {
+        "id": "style_1_10",
+        "name": "复古动画",
+        "cover": "/static/style_covers/动漫插画/复古动画.webp",
+        "kw": "复古动画风格，画面带有旧时代二维动画的怀旧质感，线条和色彩略带年代感，整体呈现经典动画截图般的温暖复古氛围。retro anime style, nostalgic 2D animation look, slightly muted colors, classic hand-drawn animation feeling, vintage animated frame, old-school anime atmosphere"
+      },
+      {
+        "id": "style_1_11",
+        "name": "Q版可爱插画",
+        "cover": "/static/style_covers/动漫插画/Q版可爱插画.webp",
+        "kw": "Q版可爱插画风格，角色比例夸张可爱，头身比偏萌系，五官简化但表情丰富，整体画面轻松、明亮、亲和，适合可爱角色与贴纸化视觉。chibi cute illustration style, adorable exaggerated proportions, simplified expressive face, bright playful colors, charming character design, sticker-like cute visual"
+      }
+    ]
+  },
+  {
+    "cat": "三维渲染",
+    "items": [
+      {
+        "id": "style_2_0",
+        "name": "写实3D渲染",
+        "cover": "/static/style_covers/三维渲染/写实3D渲染.webp",
+        "kw": "写实3D渲染风格，画面具有高质量计算机图形渲染质感，主体造型自然可信，材质、光照和空间关系接近真实世界，整体呈现精致、干净、真实感强的三维视觉效果。realistic 3D rendering, high-end CGI, physically based rendering, realistic materials, natural proportions, believable lighting, detailed 3D scene"
+      },
+      {
+        "id": "style_2_1",
+        "name": "电影级3D动画",
+        "cover": "/static/style_covers/三维渲染/电影级3D动画.webp",
+        "kw": "电影级3D动画风格，画面具有高质量动画电影般的完整度，角色造型精致，表情生动，场景与光影统一，整体呈现细腻、明亮、富有叙事感的三维动画视觉效果。cinematic 3D animation style, high-end animated movie look, expressive 3D characters, polished character design, detailed environment, immersive animated storytelling"
+      },
+      {
+        "id": "style_2_2",
+        "name": "次世代游戏3D",
+        "cover": "/static/style_covers/三维渲染/次世代游戏3D.webp",
+        "kw": "次世代游戏3D风格，画面具有高规格游戏角色与场景渲染质感，模型细节丰富，材质真实，角色轮廓清晰，整体呈现游戏宣传图、角色展示或实时渲染过场动画般的视觉效果。next-generation game 3D style, AAA game cinematic look, detailed 3D character model, realistic PBR materials, high-fidelity environment, real-time render aesthetic"
+      },
+      {
+        "id": "style_2_3",
+        "name": "卡通3D",
+        "cover": "/static/style_covers/三维渲染/卡通3D.webp",
+        "kw": "卡通3D渲染风格，角色和场景以简洁可爱的三维造型呈现，比例略带夸张但自然协调，材质柔和干净，整体画面明亮、亲和、轻松，具有高质量卡通动画质感。cartoon 3D rendering style, cute stylized 3D characters, soft rounded shapes, clean materials, bright friendly colors, polished animated look"
+      },
+      {
+        "id": "style_2_4",
+        "name": "Q版3D",
+        "cover": "/static/style_covers/三维渲染/Q版3D.webp",
+        "kw": "Q版3D风格，角色头身比可爱夸张，五官简化但表情丰富，整体造型圆润柔和，画面明亮干净，具有萌系三维角色和可爱IP形象的视觉效果。chibi 3D style, adorable exaggerated proportions, big head small body, rounded cute shapes, expressive simplified face, toy-like 3D character look"
+      },
+      {
+        "id": "style_2_5",
+        "name": "潮玩手办",
+        "cover": "/static/style_covers/三维渲染/潮玩手办.webp",
+        "kw": "潮玩手办3D风格，主体呈现精致收藏玩具或设计师手办质感，造型可爱但有设计感，材质细腻，表面干净，整体像高品质盲盒、公仔或IP周边产品渲染图。designer toy 3D style, collectible figurine look, vinyl toy material, cute stylized character, polished toy surface, premium blind box aesthetic"
+      },
+      {
+        "id": "style_2_6",
+        "name": "黏土动画",
+        "cover": "/static/style_covers/三维渲染/黏土动画.webp",
+        "kw": "黏土动画风格，画面具有手工黏土和定格动画般的三维质感，造型圆润，表面带有轻微手作痕迹，色彩柔和温暖，整体呈现可爱、治愈、手工感强的立体视觉效果。claymation style, handmade clay texture, stop-motion animation look, soft rounded forms, subtle handcrafted imperfections, warm whimsical 3D visual"
+      },
+      {
+        "id": "style_2_7",
+        "name": "低多边形3D",
+        "cover": "/static/style_covers/三维渲染/低多边形3D.webp",
+        "kw": "低多边形3D风格，画面由简洁几何形体构成，模型面数较低但结构清晰，色块明确，整体呈现轻量化、设计感强、带有游戏概念美术气质的三维视觉效果。low-poly 3D style, simplified geometric shapes, faceted surfaces, clean color blocks, stylized 3D environment, lightweight game art aesthetic"
+      },
+      {
+        "id": "style_2_8",
+        "name": "等距3D",
+        "cover": "/static/style_covers/三维渲染/等距3D.webp",
+        "kw": "等距3D风格，画面采用稳定的等距视角和清晰的三维结构，空间层次整齐，主体像精致的小型立体模型，整体具有现代、干净、适合信息展示的设计感。isometric 3D style, clean isometric perspective, miniature 3D scene, organized spatial layout, modern design visual, clear structural composition"
+      },
+      {
+        "id": "style_2_9",
+        "name": "产品级3D渲染",
+        "cover": "/static/style_covers/三维渲染/产品级3D渲染.webp",
+        "kw": "产品级3D渲染风格，主体产品以精致、干净、商业化的三维渲染方式呈现，边缘清晰，材质细节准确，反光和表面处理自然，整体具有高端产品视觉和广告级展示质感。premium product 3D rendering, clean commercial CGI, accurate material detail, polished surface reflection, sharp product silhouette, high-end product visualization"
+      },
+      {
+        "id": "style_2_10",
+        "name": "建筑可视化3D",
+        "cover": "/static/style_covers/三维渲染/建筑可视化3D.webp",
+        "kw": "建筑可视化3D风格，画面具有专业建筑效果图般的空间表现，结构线条清晰，材质与光线真实可信，整体呈现干净、理性、具有设计完成度的建筑与室内空间渲染效果。architectural visualization 3D style, realistic architectural rendering, clean spatial composition, accurate materials, believable lighting, professional interior and exterior visualization"
+      },
+      {
+        "id": "style_2_11",
+        "name": "硬表面科幻3D",
+        "cover": "/static/style_covers/三维渲染/硬表面科幻3D.webp",
+        "kw": "硬表面科幻3D风格，画面强调机械结构、工业设计和未来科技感，主体表面线条硬朗，金属、玻璃、复合材料细节丰富，整体呈现高精度科幻装备或未来工业产品的三维渲染效果。hard-surface sci-fi 3D style, futuristic industrial design, precise mechanical details, metallic and composite materials, high-tech 3D rendering, advanced concept art look"
+      }
+    ]
+  },
+  {
+    "cat": "艺术媒介",
+    "items": [
+      {
+        "id": "style_3_0",
+        "name": "水彩画",
+        "cover": "/static/style_covers/艺术媒介/水彩画.webp",
+        "kw": "水彩画风格，画面具有轻盈透明的水彩颜料质感，色彩自然晕染，边缘柔和，层次清透，整体呈现温柔、诗意、带有手绘纸张纹理的艺术效果。watercolor painting style, transparent pigment washes, soft edges, delicate color bleeding, light paper texture, gentle hand-painted look"
+      },
+      {
+        "id": "style_3_1",
+        "name": "油画",
+        "cover": "/static/style_covers/艺术媒介/油画.webp",
+        "kw": "油画风格，画面具有传统油画的厚重颜料层次和细腻笔触，色彩饱满，明暗关系丰富，整体呈现经典绘画作品般的艺术质感和视觉深度。oil painting style, rich pigment layers, visible brush strokes, deep color tones, classical painterly texture, refined artistic depth"
+      },
+      {
+        "id": "style_3_2",
+        "name": "国风水墨",
+        "cover": "/static/style_covers/艺术媒介/国风水墨.webp",
+        "kw": "国风水墨画风格，画面以墨色层次、宣纸肌理和东方留白构成视觉主体，线条含蓄，墨韵自然，整体呈现传统中国绘画般的诗意、含蓄与空灵意境。Chinese ink wash painting style, expressive ink gradients, rice paper texture, elegant negative space, poetic oriental atmosphere, traditional brushwork aesthetic"
+      },
+      {
+        "id": "style_3_3",
+        "name": "素描线稿",
+        "cover": "/static/style_covers/艺术媒介/素描线稿.webp",
+        "kw": "素描线稿风格，画面以铅笔线条和明暗排线表现主体结构，造型清晰，细节克制，整体呈现艺术草图、角色设定或概念速写般的手绘质感。pencil sketch style, clean graphite lines, subtle hatching, hand-drawn construction, monochrome drawing texture, concept sketch aesthetic"
+      },
+      {
+        "id": "style_3_4",
+        "name": "彩铅插画",
+        "cover": "/static/style_covers/艺术媒介/彩铅插画.webp",
+        "kw": "彩铅插画风格，画面具有彩色铅笔细腻叠色和柔和笔触质感，色彩温暖自然，边缘带有轻微手绘颗粒，整体呈现亲切、精致、安静的手作插画效果。colored pencil illustration, delicate layered pencil strokes, soft hand-drawn texture, warm natural colors, subtle paper grain, gentle illustrated look"
+      },
+      {
+        "id": "style_3_5",
+        "name": "粉彩画",
+        "cover": "/static/style_covers/艺术媒介/粉彩画.webp",
+        "kw": "粉彩画风格，画面具有柔软细腻的粉彩颗粒质感，色彩过渡温柔，整体明亮、轻盈、带有梦幻和温暖的绘画氛围。pastel painting style, soft powdery texture, gentle color transitions, dreamy light tones, delicate hand-drawn surface, warm artistic atmosphere"
+      },
+      {
+        "id": "style_3_6",
+        "name": "马克笔手绘",
+        "cover": "/static/style_covers/艺术媒介/马克笔手绘.webp",
+        "kw": "马克笔手绘风格，画面具有设计师手绘马克笔的快速表现质感，色块明确，笔触干净，明暗层次直接，整体呈现概念设计稿、产品草图或建筑手绘效果。marker rendering style, clean marker strokes, bold color blocks, quick design sketch feeling, clear shading, professional concept drawing look"
+      },
+      {
+        "id": "style_3_7",
+        "name": "木刻版画",
+        "cover": "/static/style_covers/艺术媒介/木刻版画.webp",
+        "kw": "木刻版画风格，画面以粗粝有力的刻刀线条和强烈黑白对比构成，纹理质朴，造型简练，整体呈现传统版画般的复古、厚重和手工印刷质感。woodcut print style, bold carved lines, strong black and white contrast, rough handmade texture, traditional printmaking look, vintage graphic aesthetic"
+      },
+      {
+        "id": "style_3_8",
+        "name": "丝网印刷",
+        "cover": "/static/style_covers/艺术媒介/丝网印刷.webp",
+        "kw": "丝网印刷风格，画面具有平面化色块、轻微错位套色和印刷颗粒感，色彩鲜明直接，整体呈现复古海报、潮流印刷品或波普视觉效果。screen print style, flat graphic color blocks, slight registration offset, print grain texture, bold poster aesthetic, retro commercial print look"
+      },
+      {
+        "id": "style_3_9",
+        "name": "拼贴艺术",
+        "cover": "/static/style_covers/艺术媒介/拼贴艺术.webp",
+        "kw": "拼贴艺术风格，画面由不同材质、图片碎片、纸张纹理和图形元素组合而成，层次丰富，带有手工剪贴和实验设计感，整体呈现创意海报般的视觉效果。collage art style, mixed paper textures, layered cutout elements, handmade composition, experimental graphic layout, editorial collage aesthetic"
+      },
+      {
+        "id": "style_3_10",
+        "name": "剪纸艺术",
+        "cover": "/static/style_covers/艺术媒介/剪纸艺术.webp",
+        "kw": "剪纸艺术风格，画面由层叠纸张和镂空形状构成，边缘清晰，装饰性强，色彩简洁而有节奏，整体呈现手工剪纸、纸雕或民俗装饰般的立体平面效果。paper cut art style, layered paper shapes, crisp cutout edges, decorative composition, handcrafted paper texture, folk-inspired visual design"
+      },
+      {
+        "id": "style_3_11",
+        "name": "像素艺术",
+        "cover": "/static/style_covers/艺术媒介/像素艺术.webp",
+        "kw": "像素艺术风格，画面由清晰的像素块构成，造型简洁，色彩受限但富有节奏，整体呈现复古电子游戏、低分辨率图形和怀旧数字美学效果。pixel art style, crisp pixel blocks, limited color palette, retro video game aesthetic, low-resolution digital look, nostalgic 8-bit or 16-bit visual"
+      }
+    ]
+  },
+  {
+    "cat": "商业设计",
+    "items": [
+      {
+        "id": "style_4_0",
+        "name": "电商主图",
+        "cover": "/static/style_covers/商业设计/电商主图.webp",
+        "kw": "电商主图设计风格，画面以商品或主体为核心，背景干净，主体清晰突出，构图简洁直接，视觉信息明确，整体具有适合线上销售页面的专业商品展示效果。e-commerce product image style, clean product-focused composition, clear subject highlight, minimal background, commercial product presentation, online shopping visual"
+      },
+      {
+        "id": "style_4_1",
+        "name": "产品广告海报",
+        "cover": "/static/style_covers/商业设计/产品广告海报.webp",
+        "kw": "产品广告海报风格，画面围绕核心产品进行视觉强化，主体突出，构图具有广告张力，背景、光影和装饰元素服务于产品表达，整体呈现精致、有吸引力的商业宣传效果。product advertising poster style, hero product composition, refined commercial layout, strong product focus, attractive promotional visual, polished advertising design"
+      },
+      {
+        "id": "style_4_2",
+        "name": "品牌 KV 主视觉",
+        "cover": "/static/style_covers/商业设计/品牌 KV 主视觉.webp",
+        "kw": "品牌KV主视觉风格，画面具有完整的品牌广告主视觉效果，主体、背景、色彩和空间关系统一，视觉层级清晰，整体呈现高级、稳定、适合品牌传播的核心视觉画面。brand key visual design, premium brand campaign visual, strong visual hierarchy, cohesive composition, refined color system, professional marketing image"
+      },
+      {
+        "id": "style_4_3",
+        "name": "社交媒体封面",
+        "cover": "/static/style_covers/商业设计/社交媒体封面.webp",
+        "kw": "社交媒体封面设计风格，画面具有强吸引力和快速识别度，主体明确，构图紧凑，色彩醒目但不杂乱，整体适合在信息流中作为封面图吸引点击。social media cover design, eye-catching composition, clear focal subject, scroll-stopping visual, modern content thumbnail style, clean and engaging layout"
+      },
+      {
+        "id": "style_4_4",
+        "name": "杂志封面",
+        "cover": "/static/style_covers/商业设计/杂志封面.webp",
+        "kw": "杂志封面设计风格，画面具有高级出版物封面的视觉秩序，主体位置明确，留白和版面感强，整体呈现精致、优雅、具有编辑设计感的商业视觉效果。magazine cover design style, editorial layout feeling, refined visual hierarchy, elegant cover composition, premium publication aesthetic, polished commercial editorial look"
+      },
+      {
+        "id": "style_4_5",
+        "name": "奢侈品广告",
+        "cover": "/static/style_covers/商业设计/奢侈品广告.webp",
+        "kw": "奢侈品广告视觉风格，画面克制高级，主体呈现精致而有距离感，色彩、光影和空间留白讲究，整体具有高端品牌广告的优雅、稀缺感和精修质感。luxury advertising visual style, elegant premium composition, refined minimal space, sophisticated lighting, high-end brand aesthetic, polished luxury campaign look"
+      },
+      {
+        "id": "style_4_6",
+        "name": "极简品牌视觉",
+        "cover": "/static/style_covers/商业设计/极简品牌视觉.webp",
+        "kw": "极简品牌视觉风格，画面使用简洁构图、克制色彩和清晰空间关系，去除多余装饰，突出主体本身的形态和品牌气质，整体呈现现代、干净、高级的设计感。minimal brand visual style, clean modern composition, restrained color palette, strong negative space, refined visual simplicity, premium minimalist design"
+      },
+      {
+        "id": "style_4_7",
+        "name": "活动促销海报",
+        "cover": "/static/style_covers/商业设计/活动促销海报.webp",
+        "kw": "活动促销海报风格，画面具有明确的营销氛围和视觉冲击力，主体突出，色彩更积极醒目，构图强调活动感、热闹感和购买吸引力，整体适合促销宣传和运营投放。promotional campaign poster style, bold marketing visual, energetic commercial composition, strong attention-grabbing layout, sale event atmosphere, clear promotional focus"
+      },
+      {
+        "id": "style_4_8",
+        "name": "包装设计视觉",
+        "cover": "/static/style_covers/商业设计/包装设计视觉.webp",
+        "kw": "包装设计视觉风格，画面围绕产品包装进行展示，强调包装结构、品牌图形、材质和陈列美感，整体具有专业包装设计提案或品牌包装展示图的完成度。packaging design visual style, professional product packaging presentation, brand label design, refined package structure, clean display composition, commercial packaging mockup aesthetic"
+      },
+      {
+        "id": "style_4_9",
+        "name": "App 图标设计",
+        "cover": "/static/style_covers/商业设计/App 图标设计.webp",
+        "kw": "App图标设计风格，画面以简洁、识别度高的图形符号为核心，造型清晰，比例稳定，视觉元素集中，整体适合移动应用图标、软件Logo或数字产品品牌标识。app icon design style, clean recognizable symbol, centered composition, rounded square icon aesthetic, modern digital product logo, simple high-contrast visual identity"
+      },
+      {
+        "id": "style_4_10",
+        "name": "网页 Hero Banner",
+        "cover": "/static/style_covers/商业设计/网页 Hero Banner.webp",
+        "kw": "网页Hero Banner设计风格，画面具有现代网页首页头图的视觉结构，主体与背景空间关系清晰，适合承载品牌标题和产品卖点，整体呈现干净、专业、适合数字产品展示的横幅视觉效果。website hero banner design, modern landing page visual, clean spacious composition, product-focused web graphic, professional digital brand presentation, wide banner layout"
+      },
+      {
+        "id": "style_4_11",
+        "name": "信息图表设计",
+        "cover": "/static/style_covers/商业设计/信息图表设计.webp",
+        "kw": "信息图表设计风格，画面强调信息结构清晰、图形表达简洁、层级关系明确，整体具有现代商业信息图、功能说明图或知识卡片的设计感。infographic design style, clear information hierarchy, clean graphic elements, structured layout, modern visual explanation, professional data and feature presentation"
+      }
+    ]
+  },
+  {
+    "cat": "类型美学",
+    "items": [
+      {
+        "id": "style_5_0",
+        "name": "国风仙侠",
+        "cover": "/static/style_covers/类型美学/国风仙侠.webp",
+        "kw": "国风仙侠美学，画面融合中国古典建筑、山水意境、仙气氛围和东方幻想元素，整体呈现飘逸、神秘、空灵且具有修仙世界观的视觉效果。Chinese fantasy xianxia aesthetic, elegant ancient Chinese visual design, mystical atmosphere, ethereal scenery, flowing robes, spiritual energy, oriental fantasy world"
+      },
+      {
+        "id": "style_5_1",
+        "name": "东方古韵",
+        "cover": "/static/style_covers/类型美学/东方古韵.webp",
+        "kw": "东方古韵美学，画面强调传统东方建筑、服饰、器物、山水和礼制秩序，整体气质典雅、含蓄、沉稳，呈现古典中国文化与东方诗意的视觉氛围。traditional oriental aesthetic, classical Chinese elegance, ancient architecture, refined cultural atmosphere, poetic composition, graceful historical visual style"
+      },
+      {
+        "id": "style_5_2",
+        "name": "赛博朋克",
+        "cover": "/static/style_covers/类型美学/赛博朋克.webp",
+        "kw": "赛博朋克美学，画面充满未来都市、霓虹灯光、电子屏幕、机械改造和高科技低生活的反差感，整体呈现冷峻、潮湿、混乱又高度视觉化的未来反乌托邦氛围。cyberpunk aesthetic, neon-lit futuristic city, high-tech low-life atmosphere, holographic screens, urban dystopia, rain-soaked streets, electric color contrast"
+      },
+      {
+        "id": "style_5_3",
+        "name": "未来科幻",
+        "cover": "/static/style_covers/类型美学/未来科幻.webp",
+        "kw": "未来科幻美学，画面强调先进科技、洁净空间、智能设备、未来建筑和理性秩序，整体呈现高度发达、现代、冷静且具有科技想象力的未来世界视觉效果。futuristic sci-fi aesthetic, advanced technology, clean future architecture, intelligent devices, sleek surfaces, high-tech atmosphere, visionary future world"
+      },
+      {
+        "id": "style_5_4",
+        "name": "蒸汽朋克",
+        "cover": "/static/style_covers/类型美学/蒸汽朋克.webp",
+        "kw": "蒸汽朋克美学，画面融合维多利亚时代服饰、黄铜机械、齿轮结构、蒸汽管道和复古工业幻想，整体呈现华丽、机械、怀旧且充满手工科技感的视觉世界。steampunk aesthetic, Victorian-inspired design, brass machinery, gears and pipes, steam-powered technology, retro industrial fantasy, ornate mechanical details"
+      },
+      {
+        "id": "style_5_5",
+        "name": "奇幻史诗",
+        "cover": "/static/style_covers/类型美学/奇幻史诗.webp",
+        "kw": "奇幻史诗美学，画面具有宏大的幻想世界观，融合古老王国、魔法力量、神秘遗迹、英雄旅程和史诗级场景，整体呈现壮阔、庄严、充满冒险感的视觉效果。epic fantasy aesthetic, grand mythical world, ancient kingdoms, magical atmosphere, legendary ruins, heroic adventure, dramatic epic visual scale"
+      },
+      {
+        "id": "style_5_6",
+        "name": "暗黑哥特",
+        "cover": "/static/style_covers/类型美学/暗黑哥特.webp",
+        "kw": "暗黑哥特美学，画面强调阴郁古堡、尖拱建筑、黑色服饰、烛光、阴影和神秘宗教感，整体呈现华丽、压抑、危险又带有黑暗浪漫气质的视觉氛围。dark gothic aesthetic, shadowy castle architecture, black ornate fashion, candlelit atmosphere, mysterious ritual feeling, dramatic darkness, romantic horror visual mood"
+      },
+      {
+        "id": "style_5_7",
+        "name": "废土末日",
+        "cover": "/static/style_covers/类型美学/废土末日.webp",
+        "kw": "废土末日美学，画面呈现文明崩塌后的荒凉世界，充满破败建筑、尘土、废弃机械、生存装备和危险环境，整体具有粗粝、压抑、残酷而真实的末日生存氛围。post-apocalyptic wasteland aesthetic, ruined civilization, dusty abandoned city, survival gear, broken machinery, harsh environment, gritty dystopian atmosphere"
+      },
+      {
+        "id": "style_5_8",
+        "name": "复古港风",
+        "cover": "/static/style_covers/类型美学/复古港风.webp",
+        "kw": "复古港风美学，画面融合老香港街道、霓虹招牌、胶片色彩、潮湿夜景和都市情绪，整体呈现怀旧、暧昧、生活感浓厚的90年代亚洲城市影像氛围。retro Hong Kong aesthetic, neon street signs, vintage urban atmosphere, nostalgic film colors, humid night streets, cinematic Asian city mood, 1990s visual feeling"
+      },
+      {
+        "id": "style_5_9",
+        "name": "梦幻童话",
+        "cover": "/static/style_covers/类型美学/梦幻童话.webp",
+        "kw": "梦幻童话美学，画面充满柔和光线、奇妙自然、童话建筑、可爱生物和梦境般的色彩，整体呈现温暖、纯净、浪漫且富有想象力的幻想世界。dreamy fairy tale aesthetic, magical forest, whimsical architecture, soft glowing light, charming creatures, romantic fantasy atmosphere, gentle dreamlike colors"
+      },
+      {
+        "id": "style_5_10",
+        "name": "极简高级",
+        "cover": "/static/style_covers/类型美学/极简高级.webp",
+        "kw": "极简高级美学，画面使用克制的色彩、干净的空间、大面积留白和清晰的视觉层级，去除多余装饰，整体呈现现代、冷静、精致且具有高端审美的视觉效果。minimal premium aesthetic, restrained color palette, clean negative space, refined composition, modern elegance, high-end visual simplicity, sophisticated design atmosphere"
+      },
+      {
+        "id": "style_5_11",
+        "name": "治愈清新",
+        "cover": "/static/style_covers/类型美学/治愈清新.webp",
+        "kw": "治愈清新美学，画面明亮柔和，色彩干净舒适，人物与环境呈现轻松自然的状态，整体带有温暖、安心、可亲近的日常治愈氛围。fresh healing aesthetic, bright soft colors, gentle natural atmosphere, cozy everyday feeling, warm emotional tone, clean comforting visual style, peaceful lifestyle mood"
+      }
+    ]
+  }
+]

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image-ChatGPT · 网页版图片生成</title>
+<link rel="icon" href="../web-image-100.ico" sizes="any">
+<link rel="icon" type="image/png" href="../web-image-100.png">
+<link rel="apple-touch-icon" href="../web-image-100.png">
+<script>
+// 提前应用保存的主题,避免页面加载时闪烁(FOUC)
+(function () {
+  try {
+    var t = localStorage.getItem('imgcpt_theme');
+    if (t === 'light' || t === 'dark') {
+      document.documentElement.setAttribute('data-theme', t);
+    } else {
+      // 首次访问默认深色(当前外观)
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+<link rel="stylesheet" href="./app.css">
+</head>
+<body>
+
+<div class="app-titlebar" id="appTitlebar">
+  <div class="titlebar-brand">
+    <img src="../web-image-100.png" alt="">
+    <span class="titlebar-title">Image-ChatGPT</span>
+  </div>
+  <div class="titlebar-drag"></div>
+  <div class="titlebar-controls">
+    <button id="winMinBtn" class="titlebar-btn" type="button" title="最小化" aria-label="最小化">
+      <svg viewBox="0 0 12 12"><path d="M2 6.5h8"/></svg>
+    </button>
+    <button id="winMaxBtn" class="titlebar-btn" type="button" title="最大化/还原" aria-label="最大化或还原">
+      <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx=".6"/></svg>
+    </button>
+    <button id="winCloseBtn" class="titlebar-btn close" type="button" title="关闭窗口到托盘" aria-label="关闭窗口到托盘">
+      <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3L3 9"/></svg>
+    </button>
+  </div>
+</div>
+
+<header>
+  <div class="status">
+    <span id="loginDot" class="dot warn"></span>
+    <span id="loginText">检查登录态…</span>
+    <span id="firstUseHint" class="first-use-hint">未登录?点击右侧"显示浏览器"登录账号</span>
+  </div>
+  <div class="spacer"></div>
+  <button id="setOutputBtn" class="small" title="设置图片保存目录(默认为 exe 同级 output/)">保存目录</button>
+  <button id="openOutputBtn" class="small" title="在系统资源管理器中打开当前保存目录">打开图片目录</button>
+  <select id="browserEngineSelect" class="browser-engine-select" title="选择用于登录和生成的浏览器">
+    <option value="chrome">Chrome</option>
+    <option value="edge">Edge</option>
+  </select>
+  <div class="toggle" id="chatToggle">
+    <div class="toggle-opt" data-mode="new">新对话</div>
+    <div class="toggle-opt" data-mode="last">上次对话</div>
+  </div>
+  <button id="toggleBrowserBtn" class="small" title="显示/隐藏所选浏览器的 ChatGPT 窗口">显示浏览器</button>
+  <div class="toggle" id="themeToggle" title="切换浅色/深色主题">
+    <div class="toggle-opt" data-theme="light">
+      <svg viewBox="0 0 24 24"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>
+    </div>
+    <div class="toggle-opt" data-theme="dark">
+      <svg viewBox="0 0 24 24"><path d="M9.5 2c-1.82 0-3.53.5-5 1.35C7.99 5.08 10.5 8.25 10.5 12s-2.51 6.92-6 8.65C5.97 21.5 7.68 22 9.5 22c5.52 0 10-4.48 10-10S15.02 2 9.5 2z"/></svg>
+    </div>
+  </div>
+</header>
+
+<div class="notice">
+  ⚠️ 请勿直接关闭 ChatGPT 浏览器窗口 — 如需隐藏请点击“隐藏浏览器”按钮。切换 Chrome / Edge 会关闭当前受控浏览器。
+</div>
+
+<main>
+  <div class="panel">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div class="toggle" id="genModeToggle">
+        <div class="toggle-opt active" data-mode="single">单图生成</div>
+        <div class="toggle-opt" data-mode="batch">批量生成</div>
+        <div class="toggle-opt" data-mode="image">图生图</div>
+      </div>
+    </div>
+    <label id="promptLabel">提示词</label>
+    <textarea id="batchText" style="margin-top:6px; min-height:120px"
+      placeholder="例如:一只在月光下弹钢琴的橘猫,赛博朋格霓虹风格"></textarea>
+    <details class="additional-prompt" id="additionalPromptPanel">
+      <summary>额外提示词 <span id="additionalPromptState">可选，全局追加</span></summary>
+      <div class="additional-prompt-body">
+        <label id="additionalPromptHint" for="additionalPromptText">填写后会追加到本次生成的主提示词后面</label>
+        <textarea id="additionalPromptText" rows="3" placeholder="例如:保持画面干净，无文字，无水印"></textarea>
+      </div>
+    </details>
+    <div class="image-mode-panel hidden" id="imageModePanel">
+      <div class="image-mode-toolbar">
+        <button id="imagePickBtn" class="small" type="button">添加参考图</button>
+        <button id="imageClearBtn" class="small danger" type="button">清空参考图</button>
+        <select id="imageQueueMode" title="选择图生图入队方式">
+          <option value="per-image">每张图独立任务</option>
+          <option value="multi-ref">全部图片作为同一任务</option>
+        </select>
+        <span class="image-count-text" id="imageCountText">0 张参考图</span>
+      </div>
+      <div class="dropzone image-dropzone" id="imageDropzone">拖拽图片到这里，或点击“添加参考图”</div>
+      <input id="imageFileInput" type="file" accept="image/*" multiple hidden>
+      <div class="image-ref-grid" id="imageRefs"></div>
+      <div class="image-ref-editor hidden" id="imageRefEditor">
+        <div class="image-ref-editor-head">
+          <span class="image-ref-editor-name" id="imageRefName"></span>
+          <div class="spacer"></div>
+          <button id="imagePreviewBtn" class="small" type="button">预览</button>
+          <button id="imageRemoveBtn" class="small danger" type="button">移除</button>
+        </div>
+        <textarea id="imageRefPrompt" placeholder="这张参考图的独立提示词；留空则使用上方通用提示词"></textarea>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div class="style-panel" id="stylePanel" title="点击选择预设风格">
+        <div class="style-icon-box">
+          <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+        </div>
+        <div class="style-text">
+          <div class="style-title">选择风格</div>
+          <div class="style-sub" id="styleSubText">当前无预设风格</div>
+        </div>
+      </div>
+      <div>
+        <label>生成比例</label>
+        <select id="batchRatio" style="background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:14px;width:100%">
+          <option value="auto">自动</option>
+          <option value="1:1">1:1 方形</option>
+          <option value="3:2">3:2 横版</option>
+          <option value="2:3">2:3 竖版</option>
+          <option value="16:9">16:9 宽屏</option>
+          <option value="9:16">9:16 竖屏</option>
+          <option value="4:3">4:3 标准</option>
+          <option value="3:4">3:4 竖版</option>
+        </select>
+      </div>
+      <div>
+        <label>生成张数</label>
+        <select id="batchCount" style="background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:14px;width:100%">
+          <option value="1">1 张</option>
+          <option value="2">2 张</option>
+          <option value="3">3 张</option>
+          <option value="4">4 张</option>
+        </select>
+      </div>
+      <div class="fixed"><button id="batchEnq" class="primary" style="margin-bottom:0">加入队列</button></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <label style="margin:0;font-size:14px;color:var(--text);font-weight:600">任务队列</label>
+      <div class="spacer" style="flex:1"></div>
+      <button id="batchClear" class="small">清空已完成</button>
+      <button id="stopBtn" class="small danger">停止队列</button>
+    </div>
+    <table id="batchTable">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th class="thumb">缩略图</th>
+          <th>提示词 / 进度</th>
+          <th>状态</th>
+          <th class="actions">操作</th>
+        </tr>
+      </thead>
+      <tbody id="batchBody">
+        <tr><td colspan="5" class="empty">还没有任务。在上面输入 prompt 后点"加入队列"。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script src="./app.js"></script>
+</body>
+</html>

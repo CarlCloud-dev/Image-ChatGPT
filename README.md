@@ -1,0 +1,140 @@
+# Image-ChatGPT
+
+> Codex 用户，别浪费ChatGpt网页版的额度，更便捷方便队列方式使用你的ChatGPT额度生成图片，自动保存在本地。
+>
+> Image-ChatGPT 是一个本地桌面工具，可选择系统安装的 Chrome 或 Edge 控制你自己的 ChatGPT 网页版，让单图、批量出图和图生图排队自动跑起来。
+
+Image-ChatGPT 不使用 OpenAI API，也不内置任何账号。可在主界面选择 Chrome 或 Edge 打开 `chatgpt.com`；两者各自使用应用同级的独立资料目录，不读取日常浏览器的默认资料。
+
+## 特性
+
+- 桌面应用：纯 Electron 桌面窗口，支持托盘运行。
+- 浏览器选择：可在 Chrome / Edge 间切换，并以应用模式打开 ChatGPT；没有标签栏和地址栏，需要登录或检查时可手动显示。
+- 完全隐藏：点击“隐藏浏览器”后，受控浏览器会从桌面和任务栏隐藏，但网页和队列继续运行；需要操作时点击“显示浏览器”恢复。
+- 原生窗口：保留 Windows 标题栏，可直接拖动窗口；ChatGPT 页面顶部居中提供“任务运行中，请勿点右上角关闭”的安全横条与高亮“隐藏窗口”按钮。
+- 单图生成：输入一个提示词，生成 1-4 张图片。
+- 批量生成：一行一个提示词，自动加入任务队列。
+- 图生图：支持上传参考图，每张参考图可写独立提示词，也可多图作为同一任务。
+- 额外提示词：默认折叠，可统一追加到单图、每行批量提示词和图生图任务末尾。
+- 预设风格：内置风格选择面板，自动追加风格关键词。
+- 任务队列：显示状态、进度、错误、缩略图、保存按钮、重试、复制提示词。
+- 历史持久化：任务队列会保存到本地，重启后仍可查看。
+- 本地输出：生成图片保存到 `output/`，可在应用内一键打开目录。
+- 本地日志：关键运行日志写入 `logs/app.log`，方便排查浏览器启动、窗口控制和生成失败。
+
+## 适合谁
+
+- 经常用 ChatGPT 网页版生成图片的人。
+- 想批量提交提示词，但不想一直盯着网页的人。
+- 想在 Codex 工作流里维护一个本地自动化出图工具的人。
+- 不想接 OpenAI API，只想复用自己 ChatGPT 网页登录态的人。
+
+## 使用前提
+
+- Windows。
+- 已安装 Node.js 和 npm。
+- 你有可正常使用图片生成功能的 ChatGPT 账号。
+
+## 快速开始
+
+```bat
+npm.cmd install
+npm.cmd start
+```
+
+或直接运行：
+
+```bat
+run.bat
+```
+
+首次启动后：
+
+1. 点击应用里的 `显示浏览器`。
+2. 在弹出的 ChatGPT 页面登录账号。
+3. 登录完成后可点击 `隐藏浏览器`。
+4. 回到应用输入提示词并加入队列。
+
+关闭应用窗口只会隐藏到托盘，任务仍会继续运行。需要真正退出时，右键托盘图标，点击 `退出应用并停止服务`。
+
+## 打包
+
+双击项目根目录的 `build.bat` 即可构建目录版 Windows 便携应用。也可在命令行运行：
+
+```bat
+npm.cmd run build
+```
+
+如果本地没有依赖，构建脚本会自动执行 `npm.cmd install`。运行时需要已安装 Chrome 或 Edge 至少其中一个。
+
+产物位置：
+
+```text
+dist-electron/Image-ChatGPT/Image-ChatGPT.exe
+```
+
+这是目录版便携应用，不能只拷贝单个 `Image-ChatGPT.exe` 给别人使用。需要把整个 `Image-ChatGPT/` 文件夹一起打包或压缩发送。
+
+默认构建会保留打包目录里的运行态数据，适合本机继续使用：
+
+- `browser_profile/`
+- `browser_profile_edge/`
+- `output/`
+- `config/`
+
+如果要生成不带登录态、输出图片和队列历史的干净目录版：
+
+```bat
+npm.cmd run build:clean
+```
+
+`build:clean` 同样会在缺少依赖时自动安装依赖。
+
+如果需要单文件便携 exe，并且网络能访问 electron-builder 辅助二进制：
+
+```bat
+npm.cmd run build:portable
+```
+
+单文件便携 exe 会由 electron-builder 额外生成；如果没有执行这个命令，当前产物就是目录版。
+
+## 本地数据
+
+应用运行时会在 exe 同级目录保存这些数据：
+
+```text
+browser_profile/          Chrome 的 ChatGPT 登录态
+browser_profile_edge/     Edge 的 ChatGPT 登录态
+output/                   生成图片
+config/chat_state.json    上次对话 URL 和保存目录
+config/queue_state.json   任务队列历史
+logs/app.log              本地运行日志
+```
+
+这些文件默认不会提交到 Git。
+
+## 项目结构
+
+```text
+electron/                 Electron 主进程、Chrome/Edge 驱动、队列、日志
+renderer/index.html        UI 结构
+renderer/app.css           UI 样式
+renderer/app.js            UI 交互逻辑
+config/selectors.json      ChatGPT 网页 DOM 选择器
+config/styles.json         预设风格数据
+scripts/build-win-dir.js   目录版打包脚本
+```
+
+## 注意事项
+
+- 本项目通过网页自动化控制 ChatGPT，ChatGPT 页面结构变化可能导致选择器失效。
+- 选择器集中在 `config/selectors.json`，通常无需改代码即可维护。
+- Chrome / Edge 的选择会保存到本地；切换会关闭当前受控浏览器，两个浏览器需要分别登录一次。
+- 可以直接关闭受控浏览器窗口；日常浏览器的默认资料不会受影响，但当前网页任务会中断。需要后台继续跑任务时，请使用应用里的 `隐藏浏览器`、ChatGPT 页面顶部居中的 `隐藏窗口`，或托盘菜单。
+- 本项目不是 OpenAI 官方项目，也不隶属于 OpenAI。
+
+## 详细教程
+
+完整使用说明见：
+
+[使用说明教程.md](%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E%E6%95%99%E7%A8%8B.md)
