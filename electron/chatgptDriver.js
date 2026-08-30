@@ -405,7 +405,7 @@ class ChatGPTDriver {
       "--no-default-browser-check",
       "--disable-session-crashed-bubble",
       "--hide-crash-restore-bubble",
-      `--app=${initialUrl}`,
+      initialUrl,
     ];
     const child = spawn(executablePath, args, { stdio: "ignore", windowsHide: false });
     this.browserProcess = child;
