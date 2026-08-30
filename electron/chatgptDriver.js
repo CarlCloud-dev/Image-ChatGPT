@@ -107,6 +107,11 @@ function isChatGptUrl(url) {
   }
 }
 
+function isLoginOrChallengeUrl(url) {
+  const value = String(url || "").toLowerCase();
+  return value.includes("/auth/") || value.includes("login") || value.includes("/cdn-cgi/");
+}
+
 function findBrowserExecutable(engine, browserCfg) {
   const explicitPath = String(
     browserCfg[`${engine}_path`] || process.env[`IMAGE_CHATGPT_${engine.toUpperCase()}_PATH`] || "",
@@ -276,9 +281,18 @@ class ChatGPTDriver {
     await this.installPageWindowControls();
   }
 
+  async ensureAuthenticatedPageWindowControls() {
+    const page = this.page;
+    if (!page || page.isClosed()) return false;
+    if (this.pageControlsReadyFor === page) return this.installPageWindowControls();
+    if (!(await this.isLoggedIn({ start: false }))) return false;
+    await this.setupPageWindowControls();
+    return this.installPageWindowControls();
+  }
+
   async installPageWindowControls() {
     const page = this.page;
-    if (!page || page.isClosed() || !isChatGptUrl(page.url())) return false;
+    if (!page || page.isClosed() || !isChatGptUrl(page.url()) || isLoginOrChallengeUrl(page.url())) return false;
     try {
       return await page.evaluate(() => {
         const rootId = "__image_chatgpt_hide_window_control__";
@@ -431,12 +445,11 @@ class ChatGPTDriver {
     this.page = this.context.pages()[0] || await this.context.newPage();
     this.page.setDefaultTimeout(this.timing("selector_timeout_ms", 15000));
     this.cdpPort = port;
-    await this.setupPageWindowControls();
     const current = this.pageUrl();
     if (!current.includes("chatgpt.com")) {
       await this.goto(initialUrl);
     }
-    await this.installPageWindowControls();
+    await this.ensureAuthenticatedPageWindowControls();
     this.browserVisibleWanted = !headless;
     this.windowVisible = !headless;
     if (headless) await this.hideWindow();
@@ -487,7 +500,7 @@ class ChatGPTDriver {
       if (!this.pageUrl()) throw e;
       logger.warn("system_browser.navigate.interrupted", { url, error: e.message || String(e) });
     }
-    await this.installPageWindowControls();
+    await this.ensureAuthenticatedPageWindowControls();
     return this.pageUrl();
   }
 
@@ -788,7 +801,7 @@ class ChatGPTDriver {
       });
       await this.showNativeBrowserWindow();
       this.windowVisible = true;
-      await this.installPageWindowControls();
+      await this.ensureAuthenticatedPageWindowControls();
       return true;
     } catch (e) {
       logger.warn("system_browser.window.show_failed", e);
@@ -861,6 +874,7 @@ class ChatGPTDriver {
       return /just a moment|checking your browser|cloudflare/i.test(text) || /just a moment/i.test(document.title || "");
     }).catch(() => false);
     if (cf) throw new Error("检测到 Cloudflare 验证页面。请显示浏览器手动完成验证。");
+    await this.ensureAuthenticatedPageWindowControls();
   }
 
   async fillComposer(text) {
