@@ -7,8 +7,10 @@
   "new_chat_url": "https://chatgpt.com/?model=auto",
 
   "composer": {
-    "_comment": "底部输入框。ChatGPT 用 contenteditable 的 div 做 composer,不是 <textarea>",
+    "_comment": "ChatGPT 输入框。新对话会使用居中的 #prompt-textarea，已有对话通常在底部。",
     "selectors": [
+      "#prompt-textarea[contenteditable='true']",
+      "textarea#prompt-textarea",
       "#composer-background [contenteditable='true']",
       "div[contenteditable='true']",
       "textarea[data-id='root']",
@@ -112,6 +114,8 @@
     "page_ready_timeout": 45,
     "page_ready_poll_interval": 0.75,
     "page_ready_stable_rounds": 3,
+    "new_chat_page_settle": 3,
+    "new_chat_page_stable_rounds": 4,
     "generation_timeout": 300,
     "image_appear_poll_interval": 1.5,
     "send_confirm_timeout": 12,

@@ -107,9 +107,11 @@
         </select>
         <span class="image-count-text" id="imageCountText">0 张参考图</span>
       </div>
-      <div class="dropzone image-dropzone" id="imageDropzone">拖拽图片到这里，或点击“添加参考图”</div>
+      <div class="dropzone image-dropzone" id="imageDropzone">
+        <div class="image-dropzone-hint" id="imageDropzoneHint">拖拽图片到这里，或点击“添加参考图”</div>
+        <div class="image-ref-grid" id="imageRefs"></div>
+      </div>
       <input id="imageFileInput" type="file" accept="image/*" multiple hidden>
-      <div class="image-ref-grid" id="imageRefs"></div>
       <div class="image-ref-editor hidden" id="imageRefEditor">
         <div class="image-ref-editor-head">
           <span class="image-ref-editor-name" id="imageRefName"></span>

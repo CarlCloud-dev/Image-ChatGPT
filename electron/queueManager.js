@@ -186,6 +186,27 @@ class QueueManager extends EventEmitter {
     return job;
   }
 
+  cancelQueued(id) {
+    const job = this.byId.get(id);
+    if (!job || job.status !== "queued") return null;
+    job.status = "failed";
+    job.error = "已停止";
+    job.stage = "failed";
+    job.detail = "已停止";
+    job.finished_at = now();
+    this.emitEvent({ type: "job_updated", job: this.publicJob(job) });
+    return job;
+  }
+
+  removeFailed(id) {
+    const job = this.byId.get(id);
+    if (!job || job.status !== "failed") return null;
+    this.jobs = this.jobs.filter((item) => item.job_id !== id);
+    this.byId.delete(id);
+    this.emitEvent({ type: "job_removed", job_id: id });
+    return job;
+  }
+
   stopAll() {
     for (const job of this.jobs) {
       if (job.status === "queued") {

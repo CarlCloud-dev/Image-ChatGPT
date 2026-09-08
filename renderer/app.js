@@ -33,6 +33,12 @@ function api(path, opts) {
   if (/^\/api\/jobs\/[^/]+\/retry$/.test(path)) {
     return window.imgcpt.invoke('retry-job', path.split('/')[3]);
   }
+  if (/^\/api\/jobs\/[^/]+\/cancel$/.test(path)) {
+    return window.imgcpt.invoke('cancel-queued-job', path.split('/')[3]);
+  }
+  if (/^\/api\/jobs\/[^/]+\/remove$/.test(path)) {
+    return window.imgcpt.invoke('remove-failed-job', path.split('/')[3]);
+  }
   if (path === '/api/stop') return window.imgcpt.invoke('stop-queue');
   if (path === '/api/app/exit') return window.imgcpt.invoke('app-exit');
   return Promise.reject(new Error('未知接口: ' + path));
@@ -102,6 +108,50 @@ function openPreview(src) {
 }
 function closePreview() {
   var mask = document.querySelector('.preview-mask');
+  if (!mask) return;
+  if (mask._onKey) document.removeEventListener('keydown', mask._onKey);
+  mask.remove();
+}
+function openReferenceGallery(images, title) {
+  var paths = Array.isArray(images) ? images.filter(Boolean) : [];
+  if (!paths.length) return;
+  if (paths.length === 1) {
+    openPreview(imgPath(paths[0]));
+    return;
+  }
+  closeReferenceGallery();
+  var mask = document.createElement('div');
+  mask.className = 'reference-gallery-mask';
+  var heading = title || ('参考图 (' + paths.length + ' 张)');
+  mask.innerHTML =
+    '<div class="reference-gallery" role="dialog" aria-modal="true" aria-label="' + esc(heading) + '">' +
+      '<div class="reference-gallery-head"><span>' + esc(heading) + '</span><button type="button" class="reference-gallery-close" title="关闭">×</button></div>' +
+      '<div class="reference-gallery-grid">' + paths.map(function (src, index) {
+        var url = imgPath(src);
+        return '<button type="button" class="reference-gallery-item" data-index="' + index + '" title="查看参考图 ' + (index + 1) + '">' +
+          '<img src="' + esc(url) + '" alt="参考图 ' + (index + 1) + '">' +
+          '<span>参考图 ' + (index + 1) + '</span>' +
+        '</button>';
+      }).join('') + '</div>' +
+    '</div>';
+  mask.addEventListener('click', function (event) {
+    if (event.target === mask) closeReferenceGallery();
+  });
+  mask.querySelector('.reference-gallery-close').onclick = closeReferenceGallery;
+  mask.querySelectorAll('.reference-gallery-item').forEach(function (item) {
+    item.onclick = function () {
+      var index = Number(item.dataset.index);
+      closeReferenceGallery();
+      openPreview(imgPath(paths[index]));
+    };
+  });
+  function onKey(event) { if (event.key === 'Escape') closeReferenceGallery(); }
+  mask._onKey = onKey;
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(mask);
+}
+function closeReferenceGallery() {
+  var mask = document.querySelector('.reference-gallery-mask');
   if (!mask) return;
   if (mask._onKey) document.removeEventListener('keydown', mask._onKey);
   mask.remove();
@@ -354,8 +404,7 @@ function setGenMode(mode) {
     lbl.textContent = '提示词(每张图之间用回车换行)';
     ta.placeholder = '例如:\n一只在月光下弹钢琴的橘猫,赛博朋克霓虹风格\n极简水墨山水,宋代风格';
   } else {
-    lbl.textContent = '通用提示词(图生图,可选)';
-    ta.placeholder = '例如:保持主体姿态,改成电影海报风格。也可以在每张参考图卡片里填写独立提示词。';
+    updateImageQueueModeUI();
   }
   updateAdditionalPromptHint();
 }
@@ -379,7 +428,19 @@ function updateImageDropzone() {
   var dz = $('imageDropzone');
   var hasImages = inputImages.length > 0;
   dz.classList.toggle('compact', hasImages);
-  dz.textContent = hasImages ? '拖拽图片到这里继续添加，或点击“添加参考图”' : '拖拽图片到这里，或点击“添加参考图”';
+  $('imageDropzoneHint').textContent = hasImages
+    ? '可继续拖入参考图；按住图片拖动可调整顺序'
+    : '拖拽图片到这里，或点击“添加参考图”';
+}
+function updateImageQueueModeUI() {
+  var multiRefMode = $('imageQueueMode').value === 'multi-ref';
+  if (genMode === 'image') {
+    $('promptLabel').textContent = multiRefMode ? '通用提示词(图生图，必填)' : '通用提示词(图生图，可选)';
+    $('batchText').placeholder = multiRefMode
+      ? '例如:以全部参考图为依据，统一角色、服装与场景，生成电影海报风格画面。'
+      : '例如:保持主体姿态，改成电影海报风格。也可以在每张参考图卡片里填写独立提示词。';
+  }
+  renderImageRefEditor();
 }
 function removeImageRef(id) {
   var removed = inputImages.find(function (x) { return x.id === id; });
@@ -391,7 +452,8 @@ function removeImageRef(id) {
 function renderImageRefEditor() {
   var editor = $('imageRefEditor');
   var item = selectedImageRef();
-  if (!item) {
+  var multiRefMode = $('imageQueueMode').value === 'multi-ref';
+  if (!item || multiRefMode) {
     editor.classList.add('hidden');
     $('imageRefName').textContent = '';
     $('imageRefPrompt').value = '';
@@ -416,7 +478,7 @@ function renderImageRefs() {
   root.innerHTML = inputImages.map(function (it, i) {
     var active = it.id === selectedImageId ? ' active' : '';
     var hasPrompt = String(it.prompt || '').trim() ? ' has-prompt' : '';
-    return '<div class="image-ref-chip' + active + hasPrompt + '" data-id="' + esc(it.id) + '" title="' + esc(it.name) + '">' +
+    return '<div class="image-ref-chip' + active + hasPrompt + '" data-id="' + esc(it.id) + '" draggable="true" title="拖动调整顺序：' + esc(it.name) + '">' +
       '<img src="' + esc(it.preview) + '" alt="">' +
       '<span class="image-ref-index">' + (i + 1) + '</span>' +
       '<button class="image-ref-remove" type="button" title="移除">×</button>' +
@@ -425,7 +487,8 @@ function renderImageRefs() {
   }).join('');
   root.querySelectorAll('.image-ref-chip').forEach(function (card) {
     var id = card.dataset.id;
-    card.onclick = function () {
+    card.onclick = function (e) {
+      e.stopPropagation();
       selectedImageId = id;
       renderImageRefs();
     };
@@ -433,10 +496,59 @@ function renderImageRefs() {
       e.stopPropagation();
       removeImageRef(id);
     };
+    card.ondragstart = function (e) {
+      draggingImageId = id;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('application/x-image-chatgpt-ref', id);
+    };
+    card.ondragend = function () {
+      draggingImageId = null;
+      clearImageRefDropIndicators();
+      card.classList.remove('dragging');
+    };
+    card.ondragover = function (e) {
+      if (!draggingImageId || draggingImageId === id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var before = e.clientX < card.getBoundingClientRect().left + card.getBoundingClientRect().width / 2;
+      clearImageRefDropIndicators();
+      card.classList.add(before ? 'drop-before' : 'drop-after');
+      e.dataTransfer.dropEffect = 'move';
+    };
+    card.ondragleave = function () {
+      card.classList.remove('drop-before', 'drop-after');
+    };
+    card.ondrop = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (draggingImageId && draggingImageId !== id) {
+        var before = e.clientX < card.getBoundingClientRect().left + card.getBoundingClientRect().width / 2;
+        moveImageRef(draggingImageId, id, before);
+      } else if (e.dataTransfer.files && e.dataTransfer.files.length) {
+        addImageFiles(e.dataTransfer.files);
+      }
+    };
   });
   updateImageCount();
   updateImageDropzone();
   renderImageRefEditor();
+}
+var draggingImageId = null;
+function clearImageRefDropIndicators() {
+  document.querySelectorAll('.image-ref-chip.drop-before, .image-ref-chip.drop-after').forEach(function (card) {
+    card.classList.remove('drop-before', 'drop-after');
+  });
+}
+function moveImageRef(sourceId, targetId, before) {
+  var sourceIndex = inputImages.findIndex(function (item) { return item.id === sourceId; });
+  var targetIndex = inputImages.findIndex(function (item) { return item.id === targetId; });
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+  var moved = inputImages.splice(sourceIndex, 1)[0];
+  targetIndex = inputImages.findIndex(function (item) { return item.id === targetId; });
+  inputImages.splice(before ? targetIndex : targetIndex + 1, 0, moved);
+  selectedImageId = moved.id;
+  renderImageRefs();
 }
 function addImageFiles(fileList) {
   var files = Array.prototype.slice.call(fileList || []);
@@ -468,16 +580,10 @@ function buildImageJobs(baseText, ratio, count) {
   var mode = $('imageQueueMode').value;
   if (!inputImages.length) throw new Error('请先添加参考图');
   if (mode === 'multi-ref') {
-    var notes = inputImages.map(function (it, i) {
-      var p = String(it.prompt || '').trim();
-      return p ? ('参考图' + (i + 1) + '(' + it.name + '): ' + p) : '';
-    }).filter(Boolean).join('\n');
-    var merged = globalText;
-    if (notes) merged = merged ? (merged + '\n' + notes) : notes;
-    if (!merged.trim()) throw new Error('请输入通用提示词或至少一张图的独立提示词');
+    if (!globalText) throw new Error('全部图片作为同一任务时，请输入通用提示词');
     return [{
-      prompt: buildGenerationPrompt(merged, ratio),
-      display_prompt: withAdditionalPrompt(merged),
+      prompt: buildGenerationPrompt(globalText, ratio),
+      display_prompt: withAdditionalPrompt(globalText),
       input_images: inputImages.map(function (it) { return it.path; }),
       name: inputImages.length > 1 ? 'multi_reference' : inputImages[0].name,
       count: count
@@ -527,14 +633,20 @@ $('imageFileInput').onchange = function (e) {
   e.target.value = '';
 };
 $('imageDropzone').onclick = function () { $('imageFileInput').click(); };
+$('imageQueueMode').onchange = function () {
+  updateImageQueueModeUI();
+};
 $('imageDropzone').ondragover = function (e) {
+  if (draggingImageId) return;
   e.preventDefault();
   $('imageDropzone').classList.add('drag');
 };
 $('imageDropzone').ondragleave = function () {
+  if (draggingImageId) return;
   $('imageDropzone').classList.remove('drag');
 };
 $('imageDropzone').ondrop = function (e) {
+  if (draggingImageId) return;
   e.preventDefault();
   $('imageDropzone').classList.remove('drag');
   addImageFiles(e.dataTransfer.files);
@@ -748,14 +860,58 @@ function escJs(s) {
 function jobDisplayPrompt(job) {
   return String((job && (job.display_prompt || job.prompt)) || '').trim();
 }
-function thumbMarkup(src, kind, label, title) {
+function thumbMarkup(src, kind, label, title, extraClass) {
   var url = imgPath(src);
-  return '<div class="thumb-wrap ' + kind + '" onclick="openPreview(\'' + escJs(url) + '\')" title="' + esc(title || '') + '">' +
+  return '<div class="thumb-wrap ' + kind + (extraClass ? (' ' + extraClass) : '') + '" onclick="openPreview(\'' + escJs(url) + '\')" title="' + esc(title || '') + '">' +
     '<img src="' + esc(url) + '">' +
-    '<span class="thumb-tag">' + esc(label) + '</span>' +
+    (label ? ('<span class="thumb-tag">' + esc(label) + '</span>') : '') +
     '<div class="thumb-overlay"><svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></div>' +
     '</div>';
 }
+function referenceStackMarkup(job) {
+  var images = (job && job.input_images) || [];
+  if (!images.length) return '';
+  var firstUrl = imgPath(images[0]);
+  var countText = images.length > 1 ? ('×' + images.length) : '参考';
+  return '<button type="button" class="reference-stack" onclick="openJobReferenceGallery(\'' + job.job_id + '\')" title="查看 ' + images.length + ' 张参考图">' +
+    '<img src="' + esc(firstUrl) + '" alt="参考图">' +
+    '<span class="reference-stack-tag">参</span>' +
+    '<span class="reference-stack-count">' + countText + '</span>' +
+  '</button>';
+}
+function queueMediaMarkup(group) {
+  var first = group[0];
+  var results = [];
+  group.forEach(function (job, jobIndex) {
+    (job.image_paths || []).forEach(function (src) {
+      if (src) results.push({ src: src, jobIndex: jobIndex });
+    });
+  });
+  var referenceHtml = referenceStackMarkup(first);
+  if (!results.length) {
+    var waitingText = group.length > 1 ? ('待生成 ×' + group.length) : '待生成';
+    return '<div class="queue-media queue-media-pending">' +
+      (referenceHtml || '<div class="thumb-placeholder queue-empty">…</div>') +
+      '<span class="queue-media-pending-text">' + waitingText + '</span>' +
+    '</div>';
+  }
+  var visibleResults = results.slice(0, 4);
+  var gridClass = visibleResults.length === 1 ? ' single' : '';
+  var outputHtml = visibleResults.map(function (item, index) {
+    return thumbMarkup(item.src, 'result', String(index + 1), '生成结果 ' + (index + 1), 'queue-result');
+  }).join('');
+  var more = results.length > visibleResults.length ? '<span class="queue-output-more">+' + (results.length - visibleResults.length) + '</span>' : '';
+  return '<div class="queue-media">' +
+    referenceHtml +
+    '<div class="queue-output-wrap"><div class="queue-output-grid' + gridClass + '">' + outputHtml + '</div>' + more + '</div>' +
+  '</div>';
+}
+window.openJobReferenceGallery = function (jobId) {
+  var job = jobs.find(function (item) { return item.job_id === jobId; });
+  if (!job) { toast('参考图任务不存在'); return; }
+  var images = job.input_images || [];
+  openReferenceGallery(images, '参考图 (' + images.length + ' 张)');
+};
 function renderTable() {
   var body = $('batchBody');
   if (!jobs.length) {
@@ -779,21 +935,7 @@ function renderTable() {
   groups.forEach(function (g, gi) {
     var isGroup = g.length > 1;
     var first = g[0];
-    var sourceImages = first.input_images || [];
-    var sourceHtml = sourceImages.map(function (src, k) {
-      return thumbMarkup(src, 'source', '原', '参考图 ' + (k + 1));
-    }).join('');
-    // 缩略图:先显示参考图,再显示同组所有生成图;没有生成图的显示占位框
-    var outputHtml = g.map(function (j, k) {
-      var imgs = j.image_paths || [];
-      if (imgs.length) {
-        return thumbMarkup(imgs[0], 'result', '出', '生成结果 ' + (k + 1));
-      }
-      // 占位框:运行中显示序号,排队显示 …,失败显示 ✗
-      var label = (j.status === 'running') ? (k + 1) : (j.status === 'failed' ? '✗' : '…');
-      return '<div class="thumb-placeholder">' + label + '</div>';
-    }).join('');
-    var thumbHtml = sourceHtml + outputHtml;
+    var thumbHtml = queueMediaMarkup(g);
     // 状态汇总:同组的话显示 x/N 完成
     var doneCnt = g.filter(function (j) { return j.status === 'done'; }).length;
     var failedCnt = g.filter(function (j) { return j.status === 'failed'; }).length;
@@ -834,14 +976,18 @@ function renderTable() {
         '<a class="save-btn" href="' + imgPath(imgs[0]) + '" download target="_blank">保存' + (isGroup ? (k + 1) : '') + '</a>' : '';
       var retry = (j.status === 'failed') ?
         '<button class="small" onclick="retryJob(\'' + j.job_id + '\')">重试' + (isGroup ? (k + 1) : '') + '</button>' : '';
-      return copy + dl + retry;
+      var stop = (j.status === 'queued') ?
+        '<button class="small danger" onclick="stopQueuedJob(\'' + j.job_id + '\')">停止' + (isGroup ? (k + 1) : '') + '</button>' : '';
+      var clear = (j.status === 'failed') ?
+        '<button class="small danger" onclick="clearFailedJob(\'' + j.job_id + '\')">清除' + (isGroup ? (k + 1) : '') + '</button>' : '';
+      return copy + dl + retry + stop + clear;
     }).filter(Boolean).join(' ');
     var shownPrompt = jobDisplayPrompt(first);
     // 序号 + ×N badge
     var idxHtml = (gi + 1) + (isGroup ? '<span class="count-badge">×' + g.length + '</span>' : '');
     html += '<tr class="' + (isGroup ? 'job-group' : '') + '">' +
       '<td>' + idxHtml + '</td>' +
-      '<td class="thumb"><div class="thumb-row">' + thumbHtml + '</div></td>' +
+      '<td class="thumb">' + thumbHtml + '</td>' +
       '<td class="prompt" title="' + esc(shownPrompt) + '">' + esc(shownPrompt) + prog + errLine + '</td>' +
       '<td>' + statusHtml + '</td>' +
       '<td class="actions">' + actionsHtml + '</td>' +
@@ -861,6 +1007,16 @@ window.retryJob = function (jobId) {
   api('/api/jobs/' + jobId + '/retry', { method: 'POST' })
     .then(function () { toast('已重新入队'); })
     .catch(function (e) { toast('重试失败: ' + e.message); });
+};
+window.stopQueuedJob = function (jobId) {
+  api('/api/jobs/' + jobId + '/cancel', { method: 'POST' })
+    .then(function () { toast('已停止该排队任务'); })
+    .catch(function (e) { toast('停止失败: ' + e.message); });
+};
+window.clearFailedJob = function (jobId) {
+  api('/api/jobs/' + jobId + '/remove', { method: 'POST' })
+    .then(function () { toast('已清除失败任务'); })
+    .catch(function (e) { toast('清除失败: ' + e.message); });
 };
 window.copyJobPrompt = function (jobId) {
   var job = jobs.find(function (j) { return j.job_id === jobId; });
@@ -886,6 +1042,9 @@ function connectSSE() {
   window.imgcpt.onQueueEvent(function (data) {
     if (data.type === 'job_added' || data.type === 'job_updated') {
       upsertJob(data.job);
+    } else if (data.type === 'job_removed') {
+      jobs = jobs.filter(function (job) { return job.job_id !== data.job_id; });
+      renderTable();
     } else if (data.type === 'progress') {
       for (var i = 0; i < jobs.length; i++) {
         if (jobs[i].job_id === data.job_id) {

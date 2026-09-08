@@ -263,8 +263,7 @@ table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13p
 th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 th { color: var(--text-dim); font-weight: 500; font-size: 12px; }
 td.prompt { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-td.thumb { width: 140px; }
-td.thumb img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; background: var(--img-bg); }
+td.thumb { width: 150px; }
 /* 缩略图悬浮遮罩:透明黑底 + 眼睛图标 */
 .thumb-wrap {
   position: relative;
@@ -356,6 +355,67 @@ td.thumb img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px;
   opacity: .6;
   pointer-events: none;
 }
+.reference-gallery-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mask-bg);
+  animation: fadeMask .2s ease-out;
+}
+.reference-gallery {
+  width: min(760px, 90vw);
+  max-height: 82vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 12px 48px rgba(0,0,0,.55);
+}
+.reference-gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.reference-gallery-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+.reference-gallery-close:hover { color: var(--text); }
+.reference-gallery-grid {
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.reference-gallery-item {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.reference-gallery-item:hover { border-color: var(--accent); color: var(--text); }
+.reference-gallery-item img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--img-bg); }
+.reference-gallery-item span { display: block; padding: 6px 8px; text-align: center; }
 td.actions { width: 210px; white-space: normal; }
 td.actions button,
 td.actions .save-btn {
@@ -522,12 +582,98 @@ tr.job-group td:first-child { border-left: 3px solid var(--accent); }
   align-items: center;
   justify-content: center;
 }
-/* 缩略图区域:多张时横向排列不换行,可滚动 */
-.thumb-row {
-  display: inline-flex;
+/* 队列媒体：参考图折叠为首图堆叠，输出结果最多 2×2 显示 */
+.queue-media {
+  display: flex;
+  align-items: center;
   gap: 4px;
-  flex-wrap: wrap;
-  max-width: 240px;
+  min-height: 48px;
+}
+.reference-stack {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  overflow: visible;
+  border: 1px solid rgba(232,162,61,.75);
+  border-radius: 5px;
+  background: var(--panel);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 rgba(232,162,61,.16), 6px 6px 0 rgba(232,162,61,.08);
+}
+.reference-stack:hover { border-color: var(--accent); }
+.reference-stack img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--img-bg);
+}
+.reference-stack-tag,
+.reference-stack-count {
+  position: absolute;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+}
+.reference-stack-tag {
+  left: 3px;
+  bottom: 3px;
+  padding: 2px 3px;
+  border-radius: 3px;
+  background: rgba(0,0,0,.66);
+}
+.reference-stack-count {
+  top: -7px;
+  right: -8px;
+  min-width: 16px;
+  padding: 3px 4px;
+  border-radius: 10px;
+  background: var(--warn);
+  font-weight: 700;
+  text-align: center;
+}
+.queue-output-wrap { position: relative; }
+.queue-output-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 42px);
+  gap: 3px;
+}
+.queue-output-grid.single { grid-template-columns: 56px; }
+.thumb-wrap.queue-result {
+  width: 42px;
+  height: 42px;
+}
+.queue-output-grid.single .thumb-wrap.queue-result {
+  width: 56px;
+  height: 56px;
+}
+.thumb-wrap.queue-result .thumb-overlay svg { width: 18px; height: 18px; }
+.queue-output-more {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 25px;
+  padding: 3px 4px;
+  border-radius: 4px 0 4px 0;
+  background: rgba(0,0,0,.72);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.queue-media-pending { gap: 9px; }
+.queue-media-pending-text {
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.thumb-placeholder.queue-empty {
+  width: 44px;
+  height: 44px;
 }
 .badge {
   display: inline-block;
@@ -583,22 +729,27 @@ tr.job-group td:first-child { border-left: 3px solid var(--accent); }
   white-space: nowrap;
 }
 .image-dropzone {
-  padding: 18px;
+  padding: 14px;
   background: var(--panel);
 }
+.image-dropzone-hint {
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .image-dropzone.compact {
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-style: solid;
   font-size: 12px;
-  margin-bottom: 10px;
 }
 .image-ref-grid {
   display: flex;
   gap: 8px;
   margin-top: 10px;
-  padding-bottom: 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  padding: 2px 2px 4px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 .image-ref-chip {
   position: relative;
@@ -609,9 +760,14 @@ tr.job-group td:first-child { border-left: 3px solid var(--accent); }
   background: var(--panel);
   flex: 0 0 auto;
   overflow: hidden;
-  cursor: pointer;
+  cursor: grab;
+  user-select: none;
   transition: border-color .15s, box-shadow .15s, transform .12s;
 }
+.image-ref-chip:active { cursor: grabbing; }
+.image-ref-chip.dragging { opacity: .42; transform: scale(.96); }
+.image-ref-chip.drop-before { box-shadow: -3px 0 0 var(--accent); }
+.image-ref-chip.drop-after { box-shadow: 3px 0 0 var(--accent); }
 .image-ref-chip:hover {
   border-color: var(--accent);
   transform: translateY(-1px);

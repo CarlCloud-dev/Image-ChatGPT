@@ -221,6 +221,16 @@ function registerIpc() {
     if (!job) throw new Error("任务不存在");
     return { job_id: job.job_id, status: job.status };
   });
+  ipcMain.handle("cancel-queued-job", (_event, jobId) => {
+    const job = queue.cancelQueued(jobId);
+    if (!job) throw new Error("仅可停止排队中的任务");
+    return { job_id: job.job_id, status: job.status };
+  });
+  ipcMain.handle("remove-failed-job", (_event, jobId) => {
+    const job = queue.removeFailed(jobId);
+    if (!job) throw new Error("仅可清除失败任务");
+    return { job_id: job.job_id };
+  });
   ipcMain.handle("stop-queue", () => {
     queue.stopAll();
     return { ok: true, msg: "已清空排队中的任务(正在运行的会跑完)" };

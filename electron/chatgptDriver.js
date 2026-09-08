@@ -532,65 +532,68 @@ class ChatGPTDriver {
 
   async trySelectors(selectors, { visibleOnly = true, timeout = 4000 } = {}) {
     const deadline = Date.now() + timeout;
+    let lastError = null;
     do {
       for (const sel of selectors) {
         try {
-          const state = await this.evaluate((selector) => {
-            const el = document.querySelector(selector);
-            if (!el) return { found: false, visible: false };
-            const style = window.getComputedStyle(el);
-            const rect = el.getBoundingClientRect();
-            return {
-              found: true,
-              visible: style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0,
-            };
-          }, sel);
-          if (state && state.found && (!visibleOnly || state.visible)) return { sel };
-        } catch {
-          // Invalid or stale selector; continue with the next candidate.
+          const page = await this.ensurePage();
+          const locator = page.locator(sel);
+          const count = await locator.count();
+          for (let index = 0; index < count; index += 1) {
+            if (!visibleOnly || await locator.nth(index).isVisible()) return { sel, index };
+          }
+        } catch (error) {
+          // A ChatGPT route change can invalidate its old JavaScript context.
+          // Locator calls are retried until the new page is ready.
+          lastError = error;
         }
       }
       if (Date.now() < deadline) await sleep(180);
     } while (Date.now() < deadline);
-    throw new Error(`无选择器命中,试过: ${selectors.join(", ")}`);
+    const reason = lastError ? `；页面读取异常: ${lastError.message || String(lastError)}` : "";
+    throw new Error(`无选择器命中,试过: ${selectors.join(", ")}${reason}`);
   }
 
   async tryEnabledSelectors(selectors, { timeout = 4000 } = {}) {
     const deadline = Date.now() + timeout;
+    let lastError = null;
     do {
       for (const sel of selectors) {
         try {
-          const state = await this.evaluate((selector) => {
-            const el = document.querySelector(selector);
-            if (!el) return { found: false, ready: false };
-            const style = window.getComputedStyle(el);
-            const rect = el.getBoundingClientRect();
-            const visible = style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
-            const disabled = Boolean(el.disabled)
-              || el.hasAttribute("disabled")
-              || el.getAttribute("aria-disabled") === "true"
-              || el.getAttribute("data-state") === "disabled"
-              || style.pointerEvents === "none";
-            return { found: true, ready: visible && !disabled };
-          }, sel);
-          if (state && state.found && state.ready) return { sel };
-        } catch {
-          // Invalid or stale selector; continue with the next candidate.
+          const page = await this.ensurePage();
+          const locator = page.locator(sel);
+          const count = await locator.count();
+          for (let index = 0; index < count; index += 1) {
+            const item = locator.nth(index);
+            if (!(await item.isVisible())) continue;
+            const enabled = await item.evaluate((el) => {
+              const style = window.getComputedStyle(el);
+              return !Boolean(el.disabled)
+                && !el.hasAttribute("disabled")
+                && el.getAttribute("aria-disabled") !== "true"
+                && el.getAttribute("data-state") !== "disabled"
+                && style.pointerEvents !== "none";
+            });
+            if (enabled) return { sel, index };
+          }
+        } catch (error) {
+          lastError = error;
         }
       }
       if (Date.now() < deadline) await sleep(180);
     } while (Date.now() < deadline);
-    throw new Error(`无可用选择器命中,试过: ${selectors.join(", ")}`);
+    const reason = lastError ? `；页面读取异常: ${lastError.message || String(lastError)}` : "";
+    throw new Error(`无可用选择器命中,试过: ${selectors.join(", ")}${reason}`);
   }
 
   async isSelectorVisible(selector) {
     try {
       const state = await this.evaluate((sel) => {
-        const el = document.querySelector(sel);
-        if (!el) return false;
-        const style = window.getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
-        return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
+        return Array.from(document.querySelectorAll(sel)).some((el) => {
+          const style = window.getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
+        });
       }, selector);
       return !!state;
     } catch {
@@ -606,19 +609,17 @@ class ChatGPTDriver {
     }
   }
 
-  async elementBox(selector) {
-    return this.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (!el) return null;
-      el.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
-      const rect = el.getBoundingClientRect();
-      if (rect.width < 1 || rect.height < 1) return null;
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    }, selector);
+  async elementBox(selector, index = 0) {
+    const page = await this.ensurePage();
+    const locator = page.locator(selector).nth(index);
+    await locator.scrollIntoViewIfNeeded().catch(() => {});
+    const box = await locator.boundingBox();
+    if (!box || box.width < 1 || box.height < 1) return null;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   }
 
-  async clickSelector(selector) {
-    const box = await this.elementBox(selector);
+  async clickSelector(selector, index = 0) {
+    const box = await this.elementBox(selector, index);
     if (!box) throw new Error(`元素不可点击: ${selector}`);
     try {
       await this.sendDevToolsCommand("Input.dispatchMouseEvent", { type: "mouseMoved", x: box.x, y: box.y });
@@ -628,13 +629,13 @@ class ChatGPTDriver {
     } catch (e) {
       logger.warn("system_browser.mouse_input.fallback", { selector, error: e.message || String(e) });
     }
-    const clicked = await this.evaluate((sel) => {
-      const el = document.querySelector(sel);
+    const clicked = await this.evaluate((sel, matchIndex) => {
+      const el = document.querySelectorAll(sel)[matchIndex];
       if (!el) return false;
       el.focus();
       el.click();
       return true;
-    }, selector);
+    }, selector, index);
     if (!clicked) throw new Error(`元素不可点击: ${selector}`);
   }
 
@@ -657,8 +658,8 @@ class ChatGPTDriver {
     });
   }
 
-  async typeText(selector, text) {
-    await this.clickSelector(selector);
+  async typeText(selector, text, index = 0) {
+    await this.clickSelector(selector, index);
     try {
       await this.dispatchKey("a", "KeyA", 65, 2);
       await this.dispatchKey("Delete", "Delete", 46);
@@ -666,17 +667,17 @@ class ChatGPTDriver {
         await this.sendDevToolsCommand("Input.insertText", { text: text.slice(i, i + 50) });
         await sleep(30);
       }
-      const actual = await this.evaluate((sel) => {
-        const el = document.querySelector(sel);
+      const actual = await this.evaluate((sel, matchIndex) => {
+        const el = document.querySelectorAll(sel)[matchIndex];
         return el ? String(el.innerText || el.textContent || "").trim() : "";
-      }, selector);
+      }, selector, index);
       if (actual.includes(text.slice(0, Math.min(text.length, 20)))) return;
     } catch (e) {
       logger.warn("system_browser.keyboard_input.fallback", { selector, error: e.message || String(e) });
     }
 
-    const inserted = await this.evaluate((sel, value) => {
-      const el = document.querySelector(sel);
+    const inserted = await this.evaluate((sel, value, matchIndex) => {
+      const el = document.querySelectorAll(sel)[matchIndex];
       if (!el) return false;
       el.focus();
       const selection = window.getSelection();
@@ -690,12 +691,12 @@ class ChatGPTDriver {
       const ok = document.execCommand("insertText", false, value);
       el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
       return ok || String(el.innerText || el.textContent || "").includes(value.slice(0, 20));
-    }, selector, text);
+    }, selector, text, index);
     if (!inserted) throw new Error("ChatGPT 输入框未接受提示词，请显示浏览器检查页面状态。");
-    const actual = await this.evaluate((sel) => {
-      const el = document.querySelector(sel);
+    const actual = await this.evaluate((sel, matchIndex) => {
+      const el = document.querySelectorAll(sel)[matchIndex];
       return el ? String(el.innerText || el.textContent || el.value || "").trim() : "";
-    }, selector);
+    }, selector, index);
     if (!actual.includes(text.slice(0, Math.min(text.length, 20)))) {
       throw new Error("ChatGPT 输入框未写入提示词，请显示浏览器检查页面状态。");
     }
@@ -751,7 +752,10 @@ class ChatGPTDriver {
     await this.ensurePage({ headless: false });
     const url = this.cfg.new_chat_url || "https://chatgpt.com/?model=auto";
     await this.goto(url);
-    await sleep(this.timing("after_send_settle", 2) * 1000);
+    await this.waitForChatPageReady({
+      minWaitSec: this.timing("new_chat_page_settle", 3),
+      stableRounds: this.timing("new_chat_page_stable_rounds", 4),
+    });
     return this.pageUrl();
   }
 
@@ -921,27 +925,31 @@ class ChatGPTDriver {
         return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
       };
       for (const selector of composerSelectors) {
-        const el = document.querySelector(selector);
-        if (!isVisible(el)) continue;
-        const style = window.getComputedStyle(el);
-        const disabled = Boolean(el.disabled)
-          || el.hasAttribute("disabled")
-          || el.getAttribute("aria-disabled") === "true"
-          || el.getAttribute("contenteditable") === "false"
-          || el.readOnly === true
-          || style.pointerEvents === "none";
-        return {
-          documentReady: document.readyState === "interactive" || document.readyState === "complete",
-          hasComposer: true,
-          writable: !disabled,
-        };
+        for (const el of document.querySelectorAll(selector)) {
+          if (!isVisible(el)) continue;
+          const style = window.getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          const disabled = Boolean(el.disabled)
+            || el.hasAttribute("disabled")
+            || el.getAttribute("aria-disabled") === "true"
+            || el.getAttribute("contenteditable") === "false"
+            || el.readOnly === true
+            || style.pointerEvents === "none";
+          return {
+            documentReady: document.readyState === "interactive" || document.readyState === "complete",
+            hasComposer: true,
+            writable: !disabled,
+            centered: rect.top > window.innerHeight * 0.2 && rect.top < window.innerHeight * 0.78,
+          };
+        }
       }
       return {
         documentReady: document.readyState === "interactive" || document.readyState === "complete",
         hasComposer: false,
         writable: false,
+        centered: false,
       };
-    }, this.list("composer")).catch(() => ({ documentReady: false, hasComposer: false, writable: false }));
+    }, this.list("composer")).catch(() => ({ documentReady: false, hasComposer: false, writable: false, centered: false }));
   }
 
   async waitForChatPageReady({ timeoutSec, minWaitSec = 0, stableRounds } = {}) {
@@ -975,8 +983,8 @@ class ChatGPTDriver {
   async fillComposer(text) {
     const cleaned = String(text || "").replace(/[\r\n]+/g, " ").replace(/ {2,}/g, " ").trim();
     if (!cleaned) throw new Error("清洗后 prompt 为空");
-    const { sel } = await this.trySelectors(this.list("composer"), { timeout: 15000 });
-    await this.typeText(sel, cleaned);
+    const { sel, index } = await this.trySelectors(this.list("composer"), { timeout: 15000 });
+    await this.typeText(sel, cleaned, index);
     await sleep(300);
   }
 
@@ -1069,12 +1077,16 @@ class ChatGPTDriver {
         return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
       };
       let composerText = "";
+      let composerFound = false;
       for (const selector of composerSelectors) {
-        const el = document.querySelector(selector);
-        if (isVisible(el)) {
-          composerText = normalize(el.innerText || el.textContent || el.value || "");
-          break;
+        for (const el of document.querySelectorAll(selector)) {
+          if (isVisible(el)) {
+            composerText = normalize(el.innerText || el.textContent || el.value || "");
+            composerFound = true;
+            break;
+          }
         }
+        if (composerFound) break;
       }
       const userMessages = Array.from(document.querySelectorAll('[data-message-author-role="user"], [data-message-author="user"]'));
       const userContainsExpected = expectedText.length > 0 && userMessages.slice(-3).some((el) => normalize(el.innerText || el.textContent || "").includes(expectedText));
@@ -1106,14 +1118,14 @@ class ChatGPTDriver {
     try {
       const selectors = this.safeSendButtonSelectors();
       if (!selectors.length) throw new Error("未配置可靠的发送按钮选择器");
-      const { sel } = await this.tryEnabledSelectors(selectors, { timeout: 8000 });
-      await this.clickSelector(sel);
+      const { sel, index } = await this.tryEnabledSelectors(selectors, { timeout: 8000 });
+      await this.clickSelector(sel, index);
       sentByButton = true;
     } catch (e) {
       logger.warn("chatgpt.send_button.unavailable", { error: e.message || String(e) });
       try {
-        const { sel } = await this.trySelectors(this.list("composer"), { timeout: 3000 });
-        await this.clickSelector(sel);
+        const { sel, index } = await this.trySelectors(this.list("composer"), { timeout: 3000 });
+        await this.clickSelector(sel, index);
         await this.dispatchKey("Enter", "Enter", 13);
       } catch {
         await this.evaluate(() => {
@@ -1139,6 +1151,7 @@ class ChatGPTDriver {
         } else if (progress) {
           await progress("typing", "输入提示词");
         }
+        await this.waitForChatPageReady({ stableRounds: 2 });
         await this.fillComposer(prompt);
         if (progress && attempt === 1) await progress("sending", "发送");
         await this.clickSend(prompt);
@@ -1296,14 +1309,22 @@ class ChatGPTDriver {
     return outPath;
   }
 
-  async generate({ prompt, jobId, name, inputImages = [], queueIndex = 1, queuePart = null, progress }) {
+  async generate({ prompt, jobId, name, inputImages = [], chatMode = "new", queueIndex = 1, queuePart = null, progress }) {
     await this.ensurePage();
+    if (chatMode === "new") {
+      if (progress) await progress("ready", "新建 ChatGPT 对话");
+      await this.openNewChat();
+    }
     this.busy = true;
     const start = Date.now();
     logger.info("generate.start", { jobId, hasName: !!name, inputImageCount: normalizeInputImages(inputImages).length });
     try {
       if (progress) await progress("ready", "等待 ChatGPT 页面就绪");
-      await this.waitForChatPageReady({ minWaitSec: 1 });
+      const initialComposer = await this.composerInteractionState();
+      await this.waitForChatPageReady({
+        minWaitSec: initialComposer.centered ? this.timing("new_chat_page_settle", 3) : 1,
+        stableRounds: initialComposer.centered ? this.timing("new_chat_page_stable_rounds", 4) : undefined,
+      });
       const uploadedImages = await this.uploadInputImages(inputImages, progress);
       const prevSrcs = await this.collectImageSrcs();
       const previousAssistantMessageCount = await this.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"], [data-message-author="assistant"]').length).catch(() => 0);
