@@ -107,6 +107,15 @@ function isChatGptUrl(url) {
   }
 }
 
+function isConversationUrl(url) {
+  try {
+    const parsed = new URL(String(url || ""));
+    return isChatGptUrl(parsed.href) && /^\/c\/[^/]+/.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function isLoginOrChallengeUrl(url) {
   const value = String(url || "").toLowerCase();
   return value.includes("/auth/") || value.includes("login") || value.includes("/cdn-cgi/");
@@ -151,7 +160,7 @@ class ChatGPTDriver {
 
   loadState() {
     const state = readJson(this.paths.stateJson, {});
-    this.lastChatUrl = state.last_chat_url || null;
+    this.lastChatUrl = isConversationUrl(state.last_chat_url) ? state.last_chat_url : null;
     this.browserEngine = normalizeBrowserEngine(state.browser_engine || this.browserConfig().engine);
     if (state.output_dir && path.dirname(state.output_dir)) {
       this.outputDirValue = state.output_dir;
@@ -167,8 +176,10 @@ class ChatGPTDriver {
   }
 
   setLastChatUrl(url) {
-    this.lastChatUrl = url || null;
+    if (!isConversationUrl(url)) return false;
+    this.lastChatUrl = url;
     this.saveState();
+    return true;
   }
 
   outputDir() {
@@ -762,9 +773,9 @@ class ChatGPTDriver {
   async openLastChat() {
     if (this.busy) throw new Error("正在生成中,无法切换对话");
     await this.ensurePage();
-    await this.goto(this.lastChatUrl || this.cfg.new_chat_url || "https://chatgpt.com/?model=auto");
+    if (!this.lastChatUrl) throw new Error("还没有已完成的上次对话");
+    await this.goto(this.lastChatUrl);
     await sleep(this.timing("after_send_settle", 2) * 1000);
-    this.setLastChatUrl(this.pageUrl());
     return this.lastChatUrl;
   }
 
@@ -1309,12 +1320,8 @@ class ChatGPTDriver {
     return outPath;
   }
 
-  async generate({ prompt, jobId, name, inputImages = [], chatMode = "new", queueIndex = 1, queuePart = null, progress }) {
+  async generate({ prompt, jobId, name, inputImages = [], queueIndex = 1, queuePart = null, progress }) {
     await this.ensurePage();
-    if (chatMode === "new") {
-      if (progress) await progress("ready", "新建 ChatGPT 对话");
-      await this.openNewChat();
-    }
     this.busy = true;
     const start = Date.now();
     logger.info("generate.start", { jobId, hasName: !!name, inputImageCount: normalizeInputImages(inputImages).length });

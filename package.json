@@ -1,6 +1,6 @@
 {
   "name": "image-chatgpt",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Electron desktop app that drives ChatGPT web image generation through a selected local Chrome or Edge browser.",
   "main": "electron/main.js",
   "private": true,

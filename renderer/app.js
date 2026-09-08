@@ -298,8 +298,8 @@ $('toggleBrowserBtn').onclick = function () {
   });
 };
 
-// 对话滑块:切换即导航浏览器
-var chatMode = 'new'; // 当前选中的模式(初始化时根据记忆状态覆盖)
+// 对话滑块只负责一次性的页面导航；队列始终在当前页面连续执行。
+var chatMode = 'new'; // 当前页面来源(初始化时根据已保存对话覆盖)
 function setChatMode(mode, navigate) {
   chatMode = mode;
   document.querySelectorAll('#chatToggle .toggle-opt').forEach(function (x) {
@@ -795,7 +795,6 @@ $('batchEnq').onclick = function () {
   var text = $('batchText').value.trim();
   var ratio = $('batchRatio').value;
   var count = parseInt($('batchCount').value, 10) || 1;
-  var mode = chatMode === 'last' ? 'reuse' : 'new';
   if (genMode !== 'image' && !text) { toast('请输入提示词'); return; }
   if (genMode === 'single') {
     // 单图:整段作为一个 prompt,生成 count 张
@@ -803,7 +802,7 @@ $('batchEnq').onclick = function () {
     var prompt = buildGenerationPrompt(text, ratio);
     api('/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt, display_prompt: displayPrompt, count: count, chat_mode: mode })
+      body: JSON.stringify({ prompt: prompt, display_prompt: displayPrompt, count: count })
     }).then(function (d) {
       toast(count > 1 ? '已加入队列(×' + count + ')' : '已加入队列');
     }).catch(function (e) { toast('加入失败: ' + e.message); });
@@ -816,7 +815,7 @@ $('batchEnq').onclick = function () {
     if (!prompts.length) { toast('没有有效的 prompt'); return; }
     api('/api/generate/batch', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: prompts, chat_mode: mode, count: count })
+      body: JSON.stringify({ prompts: prompts, count: count })
     }).then(function (d) {
       toast('已加入 ' + d.enqueued + ' 个任务' + (count > 1 ? '(每个×' + count + ')' : ''));
     }).catch(function (e) { toast('加入失败: ' + e.message); });
@@ -826,7 +825,7 @@ $('batchEnq').onclick = function () {
       if (!imageJobs.length) { toast('请填写通用提示词或每张图的独立提示词'); return; }
       api('/api/generate/batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: imageJobs, chat_mode: mode, count: 1 })
+        body: JSON.stringify({ prompts: imageJobs, count: 1 })
       }).then(function (d) {
         toast('已加入 ' + d.enqueued + ' 个图生图任务');
       }).catch(function (e) { toast('加入失败: ' + e.message); });

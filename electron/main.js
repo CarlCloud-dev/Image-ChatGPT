@@ -201,16 +201,16 @@ function registerIpc() {
       display_prompt: req.display_prompt || req.prompt,
       input_images: Array.isArray(req.input_images) ? req.input_images : [],
       name: req.name || null,
-    }], { chatMode: req.chat_mode || "new", count: Math.max(1, Math.min(4, Number(req.count || 1))) });
-    logger.info("queue.enqueue.single", { jobs: jobs.map((j) => j.job_id), count: jobs.length, chatMode: req.chat_mode || "new" });
+    }], { chatMode: "reuse", count: Math.max(1, Math.min(4, Number(req.count || 1))) });
+    logger.info("queue.enqueue.single", { jobs: jobs.map((j) => j.job_id), count: jobs.length, chatMode: "reuse" });
     queue.start();
     return jobs.length > 1 ? { enqueued: jobs.length, jobs: jobs.map((j) => j.job_id) } : { job_id: jobs[0].job_id, status: jobs[0].status };
   });
   ipcMain.handle("generate-batch", (_event, req) => {
     const prompts = req && Array.isArray(req.prompts) ? req.prompts : [];
     if (!prompts.length) throw new Error("prompts 不能为空");
-    const jobs = queue.enqueueMany(prompts, { chatMode: req.chat_mode || "new", count: Math.max(1, Math.min(4, Number(req.count || 1))) });
-    logger.info("queue.enqueue.batch", { jobs: jobs.map((j) => j.job_id), count: jobs.length, chatMode: req.chat_mode || "new" });
+    const jobs = queue.enqueueMany(prompts, { chatMode: "reuse", count: Math.max(1, Math.min(4, Number(req.count || 1))) });
+    logger.info("queue.enqueue.batch", { jobs: jobs.map((j) => j.job_id), count: jobs.length, chatMode: "reuse" });
     queue.start();
     return { enqueued: jobs.length, jobs: jobs.map((j) => j.job_id) };
   });
