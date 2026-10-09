@@ -5,6 +5,7 @@ electron_runtime/
 output/
 config/chat_state.json
 config/queue_state.json
+config/local_api.json
 logs/
 .runtime-preserve/
 

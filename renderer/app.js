@@ -2,6 +2,136 @@
 // 工具函数
 // ---------------------------------------------------------------------------
 var $ = function (id) { return document.getElementById(id); };
+var localApiState = null;
+function apiIcon(name) {
+  var paths = {
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+    hidden: '<path d="m3 3 18 18M10.6 5.1 12 5c6.5 0 10 7 10 7a19 19 0 0 1-3.1 3.8M6.2 6.2A19 19 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.8-1.6M10 10a3 3 0 0 0 4 4"/>',
+    copy: '<rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>'
+  };
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths[name] + '</svg>';
+}
+async function copyApiText(text, message) {
+  try { await navigator.clipboard.writeText(text); toast(message); }
+  catch (_) { toast('复制失败，请手动选择文本复制'); }
+}
+function localApiInstructions(state, includeKey) {
+  return [
+    '# Image-ChatGPT 本地图片生成 API 接入说明',
+    '请使用以下 HTTP API 完成文生图或图生图。该服务不是 OpenAI 兼容接口，请按本文约定调用。',
+    '',
+    'Base URL: ' + state.base_url,
+    'Authorization: Bearer ' + (includeKey ? state.api_key : '<API_KEY>'),
+    'Content-Type: application/json（所有 POST 请求）',
+    '',
+    '运行条件：Agent 必须运行在应用所在电脑。用户需保持应用运行、登录 ChatGPT 并手动开启 API；每次启动应用默认关闭 API。当前 API 状态：' + (state.enabled ? '已开启' : '已关闭，请先手动开启') + '。',
+    '仅允许本地程序调用，不支持浏览器跨域调用；不要设置 Origin 请求头。',
+    '',
+    '1. 检查服务：GET ' + state.base_url + '/api/health',
+    '成功返回 HTTP 200，JSON {"ok":true}。健康检查不表示账号已登录或具备生图额度。',
+    '',
+    '2. 文生图：POST ' + state.base_url + '/api/generate',
+    '请求 JSON：{"prompt":"一只在月光下弹钢琴的橘猫，水彩风格，图片比例 1:1","count":1}',
+    '',
+    '3. 图生图：POST ' + state.base_url + '/api/generate/image',
+    '请求 JSON：{"prompt":"保留参考图主体，改成水彩风格","input_images":["E:/images/ref1.png","E:/images/ref2.png"],"count":1}',
+    'input_images 必须为应用所在电脑上的图片绝对路径，支持 PNG/JPEG/WebP/GIF，1–20 张；全部参考图作为同一个任务使用。不要传 URL、base64 或远端电脑路径。',
+    'prompt 必填，最多 50000 字符；count 为 1–4 的整数，默认 1。服务自动添加创建图片指令，不追加界面中的风格、比例或额外提示词；需要的要求请写进 prompt。',
+    '',
+    '4. 两种提交成功均返回 HTTP 202：{"jobs":["任务ID"]}。count > 1 时返回多个任务 ID，请逐个跟踪。API 与界面共用串行队列。',
+    '查询任务：GET ' + state.base_url + '/api/jobs/<任务ID>',
+    '返回 JSON 包含 job_id、status、stage、detail、error、images。status 为 queued（排队）、running（生成中）、done（完成）或 failed（失败）。',
+    '每 3–5 秒轮询一次，生图可能耗时数分钟；排队期间继续等待，不要重复提交。failed 时读取 error 并报告原因。不要把 HTTP 202 当作生成成功。',
+    '',
+    '5. status 为 done 后，遍历 images 数组，将 Base URL 与其中的相对路径拼接后 GET 下载二进制图片。',
+    '示例地址：' + state.base_url + '/api/jobs/<任务ID>/images/0（索引从 0 开始）。下载同样须携带 Authorization 请求头；按响应 Content-Type 保存图片，不要把下载地址当作公开 URL。',
+    '',
+    '错误处理：HTTP 400 参数错误，401 密钥错误，403 调用方式不支持，404 接口/任务/图片不存在，413 请求超过 1 MB，415 Content-Type 错误，500 服务内部错误；JSON 错误响应为 {"error":"原因"}。连接失败时请用户检查 API 开关和端口。',
+    '关闭 API 后无法继续查询或下载，但已入队任务仍继续执行；重新开启后可继续查询。不要在超时或连接失败后自动重新提交生成请求，先确认原任务状态。',
+    '访问密钥属于本机凭证，请仅用于此次接入，不要写入公开仓库或公开日志。'
+  ].join('\n');
+}
+function renderLocalApi(state) {
+  localApiState = state;
+  $('apiSwitch').setAttribute('aria-checked', String(state.enabled));
+  $('apiSwitch').title = state.enabled ? '关闭本地 API：' + state.base_url : '开启本地 API';
+  $('apiSwitch').setAttribute('aria-label', state.enabled ? '关闭本地 API' : '开启本地 API');
+}
+$('apiSwitch').disabled = true;
+window.imgcpt.invoke('local-api-status').then(function (state) {
+  renderLocalApi(state);
+  $('apiSwitch').disabled = false;
+}).catch(function (error) { toast('API 配置读取失败：' + error.message); });
+$('apiSwitch').onclick = async function () {
+  this.disabled = true;
+  try {
+    renderLocalApi(await window.imgcpt.invoke('local-api-update', { enabled: !localApiState.enabled }));
+    toast(localApiState.enabled ? 'API 已开启：' + localApiState.base_url : 'API 已关闭，已入队任务继续执行');
+  } catch (error) { toast('API 切换失败：' + error.message); }
+  finally { this.disabled = false; }
+};
+$('apiSettings').onclick = async function () {
+  if (document.getElementById('localApiModal')) return;
+  try { renderLocalApi(await window.imgcpt.invoke('local-api-status')); }
+  catch (error) { toast(error.message); return; }
+  var mask = document.createElement('div');
+  mask.id = 'localApiModal';
+  mask.className = 'style-modal-mask';
+  mask.innerHTML = '<div class="style-modal api-modal" role="dialog" aria-modal="true" aria-labelledby="apiModalTitle">' +
+    '<div class="style-modal-header"><div class="style-modal-title" id="apiModalTitle">本地 API 配置</div><button class="style-modal-close" type="button" aria-label="关闭">×</button></div>' +
+    '<div class="style-modal-body api-modal-body">' +
+    '<p id="apiModalStatus"></p><p>仅允许本机程序调用。每次启动应用后，需要手动开启 API；关闭 API 不会停止已加入队列的任务。</p>' +
+    '<label for="apiPort">端口</label><input id="apiPort" type="number" min="1024" max="65535">' +
+    '<label for="apiKey">访问密钥（16–128 位字母、数字、下划线或短横线）</label>' +
+    '<div class="api-key-row"><input id="apiKey" type="password" autocomplete="off" spellcheck="false"><button id="apiReveal" class="api-icon-button" type="button" aria-label="显示密钥" title="显示密钥" aria-pressed="false">' + apiIcon('eye') + '</button><button id="apiCopyKey" class="api-icon-button" type="button" aria-label="复制密钥" title="复制密钥">' + apiIcon('copy') + '</button></div>' +
+    '<div class="api-guide-head"><div><strong>Agent 接入说明</strong><p>一键复制完整说明，包含已保存的地址和密钥</p></div><button id="apiCopyGuide" class="small api-copy-guide" type="button">' + apiIcon('copy') + '<span>复制接入说明</span></button></div>' +
+    '<textarea id="apiGuide" class="api-guide" readonly aria-label="Agent API 接入说明" spellcheck="false"></textarea>' +
+    '<p id="apiConfigError" role="alert"></p></div>' +
+    '<div class="style-modal-footer"><span class="selected-info">端口和密钥会自动保存在本地</span><div class="spacer"></div><button id="apiSave" class="small primary" type="button">保存配置</button></div></div>';
+  document.body.appendChild(mask);
+  var port = mask.querySelector('#apiPort');
+  var key = mask.querySelector('#apiKey');
+  var save = mask.querySelector('#apiSave');
+  port.value = localApiState.port;
+  key.value = localApiState.api_key;
+  var guideState = Object.assign({}, localApiState);
+  mask.querySelector('#apiGuide').value = localApiInstructions(guideState, false);
+  mask.querySelector('#apiCopyKey').onclick = function () { copyApiText(key.value, '密钥已复制'); };
+  mask.querySelector('#apiCopyGuide').onclick = function () {
+    copyApiText(localApiInstructions(guideState, true), '接入说明已复制，可直接发送给 Agent');
+  };
+  port.disabled = key.disabled = save.disabled = localApiState.enabled;
+  mask.querySelector('#apiModalStatus').textContent = (localApiState.enabled ? '运行中：' : '已关闭：') + localApiState.base_url + (localApiState.enabled ? '（修改配置前请关闭 API）' : '');
+  function close() { mask.remove(); $('apiSettings').focus(); }
+  mask.querySelector('.style-modal-close').onclick = close;
+  mask.onclick = function (event) { if (event.target === mask) close(); };
+  mask.onkeydown = function (event) {
+    if (event.key === 'Escape') close();
+    if (event.key === 'Tab') {
+      var controls = Array.from(mask.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea'));
+      var first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+  };
+  mask.querySelector('#apiReveal').onclick = function () {
+    key.type = key.type === 'password' ? 'text' : 'password';
+    var visible = key.type === 'text';
+    this.innerHTML = apiIcon(visible ? 'hidden' : 'eye');
+    this.title = visible ? '隐藏密钥' : '显示密钥';
+    this.setAttribute('aria-label', this.title);
+    this.setAttribute('aria-pressed', String(visible));
+  };
+  save.onclick = async function () {
+    save.disabled = true;
+    try {
+      renderLocalApi(await window.imgcpt.invoke('local-api-update', { config: { port: Number(port.value), api_key: key.value } }));
+      close(); toast('API 配置已保存');
+    } catch (error) { mask.querySelector('#apiConfigError').textContent = error.message; }
+    finally { save.disabled = false; }
+  };
+  mask.querySelector('.style-modal-close').focus();
+};
 function api(path, opts) {
   var body = null;
   try { body = opts && opts.body ? JSON.parse(opts.body) : null; } catch (e) { body = null; }
@@ -404,7 +534,7 @@ function setGenMode(mode) {
     lbl.textContent = '提示词(每张图之间用回车换行)';
     ta.placeholder = '例如:\n一只在月光下弹钢琴的橘猫,赛博朋克霓虹风格\n极简水墨山水,宋代风格';
   } else {
-    updateImageQueueModeUI();
+    updateImagePromptUI();
   }
   updateAdditionalPromptHint();
 }
@@ -432,15 +562,11 @@ function updateImageDropzone() {
     ? '可继续拖入参考图；按住图片拖动可调整顺序'
     : '拖拽图片到这里，或点击“添加参考图”';
 }
-function updateImageQueueModeUI() {
-  var multiRefMode = $('imageQueueMode').value === 'multi-ref';
+function updateImagePromptUI() {
   if (genMode === 'image') {
-    $('promptLabel').textContent = multiRefMode ? '通用提示词(图生图，必填)' : '通用提示词(图生图，可选)';
-    $('batchText').placeholder = multiRefMode
-      ? '例如:以全部参考图为依据，统一角色、服装与场景，生成电影海报风格画面。'
-      : '例如:保持主体姿态，改成电影海报风格。也可以在每张参考图卡片里填写独立提示词。';
+    $('promptLabel').textContent = '提示词(图生图，必填)';
+    $('batchText').placeholder = '例如:以全部参考图为依据，统一角色、服装与场景，生成电影海报风格画面。';
   }
-  renderImageRefEditor();
 }
 function removeImageRef(id) {
   var removed = inputImages.find(function (x) { return x.id === id; });
@@ -449,21 +575,6 @@ function removeImageRef(id) {
   if (selectedImageId === id) selectedImageId = inputImages.length ? inputImages[0].id : null;
   renderImageRefs();
 }
-function renderImageRefEditor() {
-  var editor = $('imageRefEditor');
-  var item = selectedImageRef();
-  var multiRefMode = $('imageQueueMode').value === 'multi-ref';
-  if (!item || multiRefMode) {
-    editor.classList.add('hidden');
-    $('imageRefName').textContent = '';
-    $('imageRefPrompt').value = '';
-    return;
-  }
-  editor.classList.remove('hidden');
-  $('imageRefName').textContent = item.name;
-  $('imageRefName').title = item.path;
-  $('imageRefPrompt').value = item.prompt || '';
-}
 function renderImageRefs() {
   var root = $('imageRefs');
   if (!inputImages.length) {
@@ -471,18 +582,15 @@ function renderImageRefs() {
     selectedImageId = null;
     updateImageCount();
     updateImageDropzone();
-    renderImageRefEditor();
     return;
   }
   if (!selectedImageRef()) selectedImageId = inputImages[0].id;
   root.innerHTML = inputImages.map(function (it, i) {
     var active = it.id === selectedImageId ? ' active' : '';
-    var hasPrompt = String(it.prompt || '').trim() ? ' has-prompt' : '';
-    return '<div class="image-ref-chip' + active + hasPrompt + '" data-id="' + esc(it.id) + '" draggable="true" title="拖动调整顺序：' + esc(it.name) + '">' +
+    return '<div class="image-ref-chip' + active + '" data-id="' + esc(it.id) + '" draggable="true" title="点击预览，拖动调整顺序：' + esc(it.name) + '">' +
       '<img src="' + esc(it.preview) + '" alt="">' +
       '<span class="image-ref-index">' + (i + 1) + '</span>' +
       '<button class="image-ref-remove" type="button" title="移除">×</button>' +
-      '<span class="image-ref-dot"></span>' +
     '</div>';
   }).join('');
   root.querySelectorAll('.image-ref-chip').forEach(function (card) {
@@ -491,6 +599,8 @@ function renderImageRefs() {
       e.stopPropagation();
       selectedImageId = id;
       renderImageRefs();
+      var item = selectedImageRef();
+      if (item) openPreview(item.preview);
     };
     card.querySelector('.image-ref-remove').onclick = function (e) {
       e.stopPropagation();
@@ -532,7 +642,6 @@ function renderImageRefs() {
   });
   updateImageCount();
   updateImageDropzone();
-  renderImageRefEditor();
 }
 var draggingImageId = null;
 function clearImageRefDropIndicators() {
@@ -563,8 +672,7 @@ function addImageFiles(fileList) {
       id: imageId(),
       path: filePath,
       name: file.name || filePath.split(/[\\/]/).pop() || 'image',
-      preview: URL.createObjectURL(file),
-      prompt: ''
+      preview: URL.createObjectURL(file)
     };
     inputImages.push(item);
     if (!firstAddedId) firstAddedId = item.id;
@@ -577,29 +685,15 @@ function addImageFiles(fileList) {
 }
 function buildImageJobs(baseText, ratio, count) {
   var globalText = String(baseText || '').trim();
-  var mode = $('imageQueueMode').value;
   if (!inputImages.length) throw new Error('请先添加参考图');
-  if (mode === 'multi-ref') {
-    if (!globalText) throw new Error('全部图片作为同一任务时，请输入通用提示词');
-    return [{
-      prompt: buildGenerationPrompt(globalText, ratio),
-      display_prompt: withAdditionalPrompt(globalText),
-      input_images: inputImages.map(function (it) { return it.path; }),
-      name: inputImages.length > 1 ? 'multi_reference' : inputImages[0].name,
-      count: count
-    }];
-  }
-  return inputImages.map(function (it) {
-    var text = String(it.prompt || '').trim() || globalText;
-    if (!text) return null;
-    return {
-      prompt: buildGenerationPrompt(text, ratio),
-      display_prompt: withAdditionalPrompt(text),
-      input_images: [it.path],
-      name: it.name,
-      count: count
-    };
-  }).filter(Boolean);
+  if (!globalText) throw new Error('请输入图生图提示词');
+  return [{
+    prompt: buildGenerationPrompt(globalText, ratio),
+    display_prompt: withAdditionalPrompt(globalText),
+    input_images: inputImages.map(function (it) { return it.path; }),
+    name: inputImages.length > 1 ? 'multi_reference' : inputImages[0].name,
+    count: count
+  }];
 }
 $('imagePickBtn').onclick = function () { $('imageFileInput').click(); };
 $('imageClearBtn').onclick = function () {
@@ -610,32 +704,11 @@ $('imageClearBtn').onclick = function () {
   selectedImageId = null;
   renderImageRefs();
 };
-$('imageRefPrompt').oninput = function (e) {
-  var item = selectedImageRef();
-  if (!item) return;
-  item.prompt = e.target.value;
-  var card = null;
-  document.querySelectorAll('.image-ref-chip').forEach(function (x) {
-    if (x.dataset.id === item.id) card = x;
-  });
-  if (card) card.classList.toggle('has-prompt', String(item.prompt || '').trim().length > 0);
-};
-$('imagePreviewBtn').onclick = function () {
-  var item = selectedImageRef();
-  if (item) openPreview(item.preview);
-};
-$('imageRemoveBtn').onclick = function () {
-  var item = selectedImageRef();
-  if (item) removeImageRef(item.id);
-};
 $('imageFileInput').onchange = function (e) {
   addImageFiles(e.target.files);
   e.target.value = '';
 };
 $('imageDropzone').onclick = function () { $('imageFileInput').click(); };
-$('imageQueueMode').onchange = function () {
-  updateImageQueueModeUI();
-};
 $('imageDropzone').ondragover = function (e) {
   if (draggingImageId) return;
   e.preventDefault();
@@ -822,7 +895,6 @@ $('batchEnq').onclick = function () {
   } else {
     try {
       var imageJobs = buildImageJobs(text, ratio, count);
-      if (!imageJobs.length) { toast('请填写通用提示词或每张图的独立提示词'); return; }
       api('/api/generate/batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompts: imageJobs, count: 1 })

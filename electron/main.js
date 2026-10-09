@@ -4,6 +4,7 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell, Tray } = requi
 const { paths, fileUrl } = require("./paths");
 const { ChatGPTDriver } = require("./chatgptDriver");
 const { QueueManager } = require("./queueManager");
+const { LocalApi } = require("./localApi");
 const logger = require("./logger");
 
 let mainWindow = null;
@@ -11,6 +12,7 @@ let tray = null;
 let isQuitting = false;
 let driver = null;
 let queue = null;
+let localApi = null;
 let p = null;
 
 function sendQueueEvent(event) {
@@ -130,6 +132,7 @@ function createTray() {
 async function shutdown() {
   logger.info("app.shutdown.start");
   if (queue) queue.stop();
+  if (localApi) await localApi.stop();
   if (driver) await driver.close();
   logger.info("app.shutdown.done");
 }
@@ -141,6 +144,8 @@ function requestQuit() {
 }
 
 function registerIpc() {
+  ipcMain.handle("local-api-status", () => localApi.status());
+  ipcMain.handle("local-api-update", (_event, body) => localApi.update(body || {}));
   ipcMain.handle("file-url", (_event, filePath) => fileUrl(filePath));
   ipcMain.handle("styles", () => loadStyles());
   ipcMain.handle("health", async () => ({
@@ -278,6 +283,7 @@ if (!gotLock) {
       sendBrowserStateEvent({ ok: true, visible: false, msg: "浏览器已完全隐藏，任务继续执行" });
     });
     queue = new QueueManager(driver, { stateFile: p.queueStateJson });
+    localApi = new LocalApi(queue, p.configDir);
     queue.on("event", sendQueueEvent);
     registerIpc();
     await createWindow();

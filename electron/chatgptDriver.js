@@ -1198,32 +1198,36 @@ class ChatGPTDriver {
     return new Set(srcs);
   }
 
-  async imageLoaded(src) {
-    const res = await this.evaluate((imageSrc) => {
-      for (const img of document.querySelectorAll("img")) {
-        if (img.src === imageSrc || img.getAttribute("src") === imageSrc) {
+  async collectCurrentResponse(previousAssistantCount, previousUserCount) {
+    return this.evaluate((assistantCount, userCount) => {
+      const userSelector = '[data-message-author-role="user"], [data-message-author="user"]';
+      const assistantSelector = '[data-message-author-role="assistant"], [data-message-author="assistant"]';
+      const users = Array.from(document.querySelectorAll(userSelector));
+      // Upload previews can acquire new URLs after sending. They are never results.
+      // Only inspect new assistant messages following this task's submitted user turn.
+      if (users.length <= userCount) return { images: [], text: "", busy: false };
+      const currentUser = users[users.length - 1];
+      const replies = Array.from(document.querySelectorAll(assistantSelector)).slice(assistantCount)
+        .filter((reply) => currentUser.compareDocumentPosition(reply) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const images = [];
+      const seen = new Set();
+      let busy = false;
+      for (const reply of replies) {
+        const turn = reply.closest('[data-testid^="conversation-turn-"], article') || reply;
+        if (turn.matches('.result-streaming, [aria-busy="true"]') || turn.querySelector('.result-streaming, [aria-busy="true"]')) busy = true;
+        for (const img of reply.querySelectorAll('img[src], img[srcset]')) {
+          if (img.closest(userSelector) || img.closest('#composer-background, form')) continue;
+          const src = img.currentSrc || img.src || img.getAttribute('src') || '';
+          if (!src || seen.has(src) || src.startsWith('data:image/svg') || src.includes('avatar') || src.includes('icon')) continue;
+          if (!src.startsWith('blob:') && !src.startsWith('http')) continue;
+          seen.add(src);
           const rect = img.getBoundingClientRect();
-          return { naturalWidth: img.naturalWidth, renderedWidth: Math.round(rect.width) };
+          images.push({ src, loaded: img.complete && img.naturalWidth > 0 && img.naturalHeight > 0 && rect.width > 50,
+            width: img.naturalWidth, height: img.naturalHeight });
         }
       }
-      return null;
-    }, src).catch(() => null);
-    return !!(res && res.naturalWidth > 0 && res.renderedWidth > 50);
-  }
-
-  async waitGeneratingDone(timeoutSec = 240) {
-    const deadline = Date.now() + timeoutSec * 1000;
-    while (Date.now() < deadline) {
-      let visible = false;
-      for (const sel of this.list("generating_indicator")) {
-        if (await this.isSelectorVisible(sel)) {
-          visible = true;
-          break;
-        }
-      }
-      if (!visible) return;
-      await sleep(this.timing("image_appear_poll_interval", 1.5) * 1000);
-    }
+      return { images, busy, text: replies.map((reply) => (reply.innerText || '').trim()).filter(Boolean).join('\n').slice(-500) };
+    }, previousAssistantCount, previousUserCount).catch(() => ({ images: [], text: "", busy: true }));
   }
 
   async isGenerationFinished() {
@@ -1233,46 +1237,38 @@ class ChatGPTDriver {
     return true;
   }
 
-  async getLastAiText(afterCount = 0) {
-    return this.evaluate((previousCount) => {
-      const selectors = [
-        '[data-message-author-role="assistant"]',
-        '[data-message-author="assistant"]',
-      ];
-      let blocks = [];
-      for (const selector of selectors) {
-        blocks = Array.from(document.querySelectorAll(selector));
-        if (blocks.length) break;
-      }
-      if (blocks.length <= Number(previousCount || 0)) return "";
-      for (let i = blocks.length - 1; i >= 0; i -= 1) {
-        const text = (blocks[i].innerText || "").trim();
-        if (text.length > 15) return text.slice(0, 500);
-      }
-      return "";
-    }, afterCount).catch(() => "");
-  }
-
-  async waitForNewImage(prevSrcs, previousAssistantMessageCount = 0) {
+  async waitForNewImage(prevSrcs, previousAssistantMessageCount = 0, previousUserMessageCount = 0) {
     const deadline = Date.now() + this.timing("generation_timeout", 300) * 1000;
     const noImgCheckAfter = Date.now() + Math.max(12, this.timing("no_image_response_delay", 15)) * 1000;
     let noImgConfirm = 0;
+    let stableImage = "";
+    let stableRounds = 0;
+    let stableSince = 0;
     while (Date.now() < deadline) {
-      const srcs = await this.collectImageSrcs();
-      const fresh = [...srcs].filter((src) => !prevSrcs.has(src));
-      for (const src of fresh.sort()) {
-        if (await this.imageLoaded(src)) {
-          await this.waitGeneratingDone();
-          const still = await this.collectImageSrcs();
-          if (still.has(src)) return src;
+      const response = await this.collectCurrentResponse(previousAssistantMessageCount, previousUserMessageCount);
+      const fresh = response.images.filter((image) => !prevSrcs.has(image.src));
+      const finished = !response.busy && await this.isGenerationFinished();
+      const composer = finished ? await this.composerInteractionState() : null;
+      const ready = composer && composer.documentReady && composer.hasComposer && composer.writable;
+      const candidate = fresh.find((image) => image.loaded);
+      if (candidate && finished && ready) {
+        const fingerprint = `${candidate.src}|${candidate.width}x${candidate.height}`;
+        if (fingerprint !== stableImage) {
+          stableImage = fingerprint;
+          stableRounds = 0;
+          stableSince = Date.now();
         }
+        stableRounds += 1;
+        if (stableRounds >= 3 && Date.now() - stableSince >= 3000) return candidate.src;
+      } else {
+        stableImage = "";
+        stableRounds = 0;
       }
       if (Date.now() > noImgCheckAfter) {
-        const anyLoaded = await fresh.reduce(async (previous, src) => (await previous) || await this.imageLoaded(src), Promise.resolve(false));
-        if (!anyLoaded && await this.isGenerationFinished()) {
+        if (!fresh.length && finished && ready) {
           noImgConfirm += 1;
           if (noImgConfirm >= 2) {
-            const aiText = await this.getLastAiText(previousAssistantMessageCount);
+            const aiText = response.text;
             if (aiText && aiText.length > 5) {
               throw new Error(`ChatGPT 未生成图片(可能提示词违规或被拒绝)。ChatGPT 回复: ${aiText.slice(0, 200)}`);
             }
@@ -1334,10 +1330,13 @@ class ChatGPTDriver {
       });
       const uploadedImages = await this.uploadInputImages(inputImages, progress);
       const prevSrcs = await this.collectImageSrcs();
-      const previousAssistantMessageCount = await this.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"], [data-message-author="assistant"]').length).catch(() => 0);
+      const previousMessages = await this.evaluate(() => ({
+        assistants: document.querySelectorAll('[data-message-author-role="assistant"], [data-message-author="assistant"]').length,
+        users: document.querySelectorAll('[data-message-author-role="user"], [data-message-author="user"]').length,
+      }));
       await this.submitPrompt(prompt, progress);
       if (progress) await progress("generating", "等待图片生成");
-      const src = await this.waitForNewImage(prevSrcs, previousAssistantMessageCount);
+      const src = await this.waitForNewImage(prevSrcs, previousMessages.assistants, previousMessages.users);
       const saved = await this.downloadImage(src, jobId, prompt, name, queueIndex, queuePart);
       if (progress) await progress("image_done", "已保存图片");
       if (progress) await progress("settling", "图片已保存，等待页面恢复");

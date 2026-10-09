@@ -699,6 +699,31 @@ tr.job-group td:first-child { border-left: 3px solid var(--accent); }
 }
 .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: rgba(16,163,127,.05); }
 .hidden { display: none !important; }
+.local-api-widget { display: flex; align-items: center; gap: 8px; flex-shrink: 0; height: 28px; padding: 0 6px 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); font-size: 11px; font-weight: 600; letter-spacing: .3px; }
+.api-switch { width: 28px; height: 16px; border: 0; border-radius: 10px; padding: 2px; background: var(--text-dim); cursor: pointer; }
+.api-switch span { display: block; width: 12px; height: 12px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .15s; }
+.api-switch[aria-checked="true"], .api-switch[aria-checked="true"]:hover { background: var(--accent); }
+.api-switch[aria-checked="true"] span { transform: translateX(12px); }
+.api-switch:disabled { opacity: .5; cursor: wait; }
+.api-settings { display: flex; align-items: center; justify-content: center; width: 23px; height: 22px; padding: 4px; border: 0; border-left: 1px solid var(--border); border-radius: 0 4px 4px 0; color: var(--text-dim); background: transparent; }
+.api-settings:hover { color: var(--text); }
+.api-settings svg, .api-icon-button svg, .api-copy-guide svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.api-modal { width: min(660px, 92vw); }
+.api-modal-body { display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+.api-modal-body p { margin: 0; line-height: 1.7; }
+.api-key-row { display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2); transition: border-color .15s, box-shadow .15s; }
+.api-key-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(16,163,127,.12); }
+.api-key-row input { flex: 1; min-width: 0; padding: 7px 8px; border: 0; background: transparent; font-family: Consolas, monospace; font-size: 12px; }
+.api-key-row input:focus { outline: none; box-shadow: none; }
+.api-key-row input[type="password"] { letter-spacing: 2px; }
+.api-icon-button { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 6px; border: 0; border-radius: 6px; background: transparent; color: var(--text-dim); }
+.api-icon-button:hover, .api-icon-button[aria-pressed="true"] { background: var(--btn-hover); color: var(--accent); }
+.api-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.api-guide-head strong { font-size: 13px; font-weight: 600; }
+.api-guide-head p { margin-top: 3px; color: var(--text-dim); font-size: 11px; }
+.api-copy-guide { display: inline-flex; align-items: center; gap: 6px; }
+.api-modal-body .api-guide { flex-shrink: 0; width: 100%; height: 260px; min-height: 160px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2); color: var(--text-dim); font: 12px/1.8 Consolas, 'Microsoft YaHei', monospace; resize: vertical; user-select: text; }
+#apiConfigError { color: #e76b6b; }
 .image-mode-panel {
   margin-top: 12px;
   border: 1px solid var(--border);

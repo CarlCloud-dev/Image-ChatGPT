@@ -91,7 +91,7 @@
   },
 
   "image_in_message": {
-    "_comment": "消息内的生成图片。ChatGPT 现在的图 src 形如 chatgpt.com/backend-api/estuary/content?id=file_...;旧版是 oaiusercontent.com。代码里还会按渲染尺寸过滤掉头像/小图标",
+    "_comment": "图片地址采集选择器。全页面采集仅用于提交前建立排除基线；结果只从本次用户消息之后的新助手回复中识别，并确认图片加载完成、生成结束和连续稳定，避免把上传参考图当成结果。",
     "selectors": [
       "img[src*='estuary/content']",
       "img[src*='oaiusercontent']",

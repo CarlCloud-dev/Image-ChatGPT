@@ -53,6 +53,11 @@
     <span id="firstUseHint" class="first-use-hint">未登录?点击右侧"显示浏览器"登录账号</span>
   </div>
   <div class="spacer"></div>
+  <div class="local-api-widget">
+    <span>API</span>
+    <button id="apiSwitch" class="api-switch" type="button" role="switch" aria-checked="false" aria-label="开启本地 API" title="开启本地 API"><span></span></button>
+    <button id="apiSettings" class="api-settings" type="button" title="API 配置" aria-label="API 配置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-.7 3-2.7 1.5-2.9-.9-1.4 2.4 2.2 2.1v3l-2.2 2.1 1.4 2.4 2.9-.9L8.3 19l.7 3h3l.7-3 2.7-1.5 2.9.9 1.4-2.4-2.2-2.1v-3l2.2-2.1-1.4-2.4-2.9.9L12.7 6 12 3z"/><circle cx="10.5" cy="12.5" r="3"/></svg></button>
+  </div>
   <button id="setOutputBtn" class="small" title="设置图片保存目录(默认为 exe 同级 output/)">保存目录</button>
   <button id="openOutputBtn" class="small" title="在系统资源管理器中打开当前保存目录">打开图片目录</button>
   <select id="browserEngineSelect" class="browser-engine-select" title="选择用于登录和生成的浏览器">
@@ -101,10 +106,7 @@
       <div class="image-mode-toolbar">
         <button id="imagePickBtn" class="small" type="button">添加参考图</button>
         <button id="imageClearBtn" class="small danger" type="button">清空参考图</button>
-        <select id="imageQueueMode" title="选择图生图入队方式">
-          <option value="per-image">每张图独立任务</option>
-          <option value="multi-ref">全部图片作为同一任务</option>
-        </select>
+        <span class="image-count-text">全部图片作为同一任务</span>
         <span class="image-count-text" id="imageCountText">0 张参考图</span>
       </div>
       <div class="dropzone image-dropzone" id="imageDropzone">
@@ -112,15 +114,6 @@
         <div class="image-ref-grid" id="imageRefs"></div>
       </div>
       <input id="imageFileInput" type="file" accept="image/*" multiple hidden>
-      <div class="image-ref-editor hidden" id="imageRefEditor">
-        <div class="image-ref-editor-head">
-          <span class="image-ref-editor-name" id="imageRefName"></span>
-          <div class="spacer"></div>
-          <button id="imagePreviewBtn" class="small" type="button">预览</button>
-          <button id="imageRemoveBtn" class="small danger" type="button">移除</button>
-        </div>
-        <textarea id="imageRefPrompt" placeholder="这张参考图的独立提示词；留空则使用上方通用提示词"></textarea>
-      </div>
     </div>
     <div class="row" style="margin-top:12px">
       <div class="style-panel" id="stylePanel" title="点击选择预设风格">
