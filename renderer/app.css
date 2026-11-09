@@ -71,6 +71,7 @@ body {
   overflow: hidden;
 }
 .app-titlebar {
+  position: relative;
   height: 38px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
@@ -80,26 +81,47 @@ body {
   -webkit-app-region: drag;
   user-select: none;
 }
-.titlebar-brand {
+.titlebar-api-widget {
+  margin-left: 10px;
+  height: 24px;
+  padding: 0 5px 0 8px;
+  font-size: 11px;
+  -webkit-app-region: no-drag;
+  z-index: 2;
+}
+.provider-tabs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 9px;
-  min-width: 0;
-  padding-left: 14px;
+  gap: 2px;
+  padding: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  -webkit-app-region: no-drag;
+  z-index: 2;
+}
+.provider-tab {
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 3px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.provider-tab:hover {
   color: var(--text);
-  font-size: 13px;
+}
+.provider-tab.active {
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 600;
-}
-.titlebar-brand img {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.titlebar-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
 }
 .titlebar-drag {
   flex: 1;
@@ -191,6 +213,23 @@ main { flex: 1; overflow: auto; padding: 16px 20px 24px; }
   border-radius: 8px;
   padding: 18px;
 }
+
+.queue-pause-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.queue-pause-notice strong { color: var(--warn); }
 
 textarea, input[type="text"], input[type="number"] {
   width: 100%;
@@ -485,6 +524,21 @@ td.actions .save-btn {
   border-radius: 4px;
 }
 .style-modal-close:hover { background: var(--btn-hover); color: var(--text); }
+.task-stop-modal { position: relative; width: min(440px, 90vw); padding: 28px; gap: 14px; border-radius: 18px; }
+.task-stop-modal .task-stop-close { position: absolute; top: 12px; right: 12px; }
+.task-stop-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: color-mix(in srgb, var(--err) 12%, transparent); }
+.task-stop-icon svg { width: 25px; height: 25px; fill: var(--err); }
+.task-stop-modal h2 { margin: 2px 0 0; font-size: 20px; font-weight: 650; color: var(--text); }
+.task-stop-modal p { margin: 0; font-size: 13px; line-height: 1.75; color: var(--text-dim); }
+.task-stop-summary { padding: 12px 14px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
+.task-stop-label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text); }
+.task-stop-summary .task-stop-prompt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.task-stop-modal .task-stop-note { font-size: 12px; }
+.task-stop-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.task-stop-actions button { padding: 10px 18px; border-radius: 8px; }
+.task-stop-actions .task-stop-confirm { color: #fff; background: var(--err); border-color: var(--err); }
+.task-stop-actions .task-stop-confirm:hover { filter: brightness(1.08); }
+.task-stop-modal button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .style-tabs {
   display: flex; gap: 4px;
   padding: 10px 20px 0;

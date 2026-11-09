@@ -2,6 +2,10 @@
 // 工具函数
 // ---------------------------------------------------------------------------
 var $ = function (id) { return document.getElementById(id); };
+var activeProvider = 'chatgpt';
+var providerDrafts = {};
+var providerSwitching = false;
+var apiUpdating = false;
 var localApiState = null;
 function apiIcon(name) {
   var paths = {
@@ -17,38 +21,45 @@ async function copyApiText(text, message) {
 }
 function localApiInstructions(state, includeKey) {
   return [
-    '# Image-ChatGPT 本地图片生成 API 接入说明',
-    '请使用以下 HTTP API 完成文生图或图生图。该服务不是 OpenAI 兼容接口，请按本文约定调用。',
+    '# 本地图片生成 API 接入说明 (ChatGPT & Gemini 双模型统一接口)',
+    '请使用以下 HTTP API 完成文生图或图生图。单端口统一支持 ChatGPT 与 Gemini，有传参考图即自动图生图，未传即文生图。',
     '',
     'Base URL: ' + state.base_url,
     'Authorization: Bearer ' + (includeKey ? state.api_key : '<API_KEY>'),
     'Content-Type: application/json（所有 POST 请求）',
     '',
-    '运行条件：Agent 必须运行在应用所在电脑。用户需保持应用运行、登录 ChatGPT 并手动开启 API；每次启动应用默认关闭 API。当前 API 状态：' + (state.enabled ? '已开启' : '已关闭，请先手动开启') + '。',
-    '仅允许本地程序调用，不支持浏览器跨域调用；不要设置 Origin 请求头。',
+    '运行条件：Agent 必须运行在应用所在电脑。用户需保持应用运行、已登录账号并手动开启 API。当前 API 状态：' + (state.enabled ? '已开启' : '已关闭，请先手动开启') + '。',
+    '仅允许本地程序调用，不支持跨域调用；不要设置 Origin 请求头。',
     '',
-    '1. 检查服务：GET ' + state.base_url + '/api/health',
-    '成功返回 HTTP 200，JSON {"ok":true}。健康检查不表示账号已登录或具备生图额度。',
+    '1. 检查服务健康：GET ' + state.base_url + '/api/health',
+    '返回 JSON：{"ok":true,"supported_models":["chatgpt","gemini"]}',
+    'queues 按模型提供 concurrency、active、queued、paused、pause_reason 和 blocked_slots；会话准备失败的环境会被暂时隔离，其他环境继续。提交返回 queue_paused 为 true 时，任务已入队但暂停派发，pause_reason 说明原因，请用户检查浏览器后在应用中点击“继续队列”。',
+    '参考图上传每个平台每次只处理一个任务，确认发送后才上传下一批；已经提交的生成仍按并发设置执行。普通上传网络错误最多冷却重传一次，上传限额或授权失败会暂停队列；遇到此类失败不要循环提交新任务，应检查 health 中的 paused 和 pause_reason 并提示用户处理。',
+    'input_images 使用本机可读取的绝对路径，按数组顺序上传；应用过滤上传文件名中的中文和特殊符号，保留英文数字，无有效名称时使用 image，并附加顺序号。只处理上传临时副本，原图名称、内容和队列路径保持不变。',
     '',
-    '2. 文生图：POST ' + state.base_url + '/api/generate',
-    '请求 JSON：{"prompt":"一只在月光下弹钢琴的橘猫，水彩风格，图片比例 1:1","count":1}',
+    '2. 统一生图接口（文生图 / 图生图合并）：POST ' + state.base_url + '/api/generate',
+    '示例 A (文生图)：',
+    '{"model":"gemini","prompt":"一只在月光下弹钢琴的橘猫，水彩风格","count":1}',
     '',
-    '3. 图生图：POST ' + state.base_url + '/api/generate/image',
-    '请求 JSON：{"prompt":"保留参考图主体，改成水彩风格","input_images":["E:/images/ref1.png","E:/images/ref2.png"],"count":1}',
-    'input_images 必须为应用所在电脑上的图片绝对路径，支持 PNG/JPEG/WebP/GIF，1–20 张；全部参考图作为同一个任务使用。不要传 URL、base64 或远端电脑路径。',
-    'prompt 必填，最多 50000 字符；count 为 1–4 的整数，默认 1。服务自动添加创建图片指令，不追加界面中的风格、比例或额外提示词；需要的要求请写进 prompt。',
+    '示例 B (图生图 - 传入 input_images 即可自动以图生图)：',
+    '{"model":"chatgpt","prompt":"保留参考图人物主体，改成赛博朋克风格","input_images":["D:/images/ref1.png"],"count":1}',
     '',
-    '4. 两种提交成功均返回 HTTP 202：{"jobs":["任务ID"]}。count > 1 时返回多个任务 ID，请逐个跟踪。API 与界面共用串行队列。',
-    '查询任务：GET ' + state.base_url + '/api/jobs/<任务ID>',
-    '返回 JSON 包含 job_id、status、stage、detail、error、images。status 为 queued（排队）、running（生成中）、done（完成）或 failed（失败）。',
-    '每 3–5 秒轮询一次，生图可能耗时数分钟；排队期间继续等待，不要重复提交。failed 时读取 error 并报告原因。不要把 HTTP 202 当作生成成功。',
+    '参数说明：',
+    '- model（或 provider / id）：可选 "chatgpt" 或 "gemini"（大小写不限），不传默认调用当前应用界面选中的平台。',
+    '- prompt：必填字符串，生图提示词，最多 50000 字符。',
+    '- input_images：可选数组，包含本机图片的绝对路径 (PNG/JPG/WebP/GIF)。有传即图生图，不传即文生图。',
+    '- count：可选 1–4 的整数，生成张数，默认 1。',
     '',
-    '5. status 为 done 后，遍历 images 数组，将 Base URL 与其中的相对路径拼接后 GET 下载二进制图片。',
-    '示例地址：' + state.base_url + '/api/jobs/<任务ID>/images/0（索引从 0 开始）。下载同样须携带 Authorization 请求头；按响应 Content-Type 保存图片，不要把下载地址当作公开 URL。',
+    '3. 提交成功返回 HTTP 202：',
+    '{"ok":true,"model":"gemini","mode":"img2img","jobs":["job_id_1"]}',
     '',
-    '错误处理：HTTP 400 参数错误，401 密钥错误，403 调用方式不支持，404 接口/任务/图片不存在，413 请求超过 1 MB，415 Content-Type 错误，500 服务内部错误；JSON 错误响应为 {"error":"原因"}。连接失败时请用户检查 API 开关和端口。',
-    '关闭 API 后无法继续查询或下载，但已入队任务仍继续执行；重新开启后可继续查询。不要在超时或连接失败后自动重新提交生成请求，先确认原任务状态。',
-    '访问密钥属于本机凭证，请仅用于此次接入，不要写入公开仓库或公开日志。'
+    '4. 轮询任务状态：GET ' + state.base_url + '/api/jobs/<任务ID>',
+    '返回 JSON 包含 job_id、model、status、detail、error、images。',
+    'status 为 queued（排队）、running（生成中）、done（完成）或 failed（失败）。建议每 3–5 秒轮询一次。',
+    '',
+    '5. 读取已生成的图片：',
+    '- 通过相对路径读取流：GET ' + state.base_url + '/api/jobs/<任务ID>/images/0（携带 Authorization 请求头直接下载二进制图片流）。',
+    '- 或直接从 job 的 image_paths 数组中获取本机保存的绝对路径。'
   ].join('\n');
 }
 function renderLocalApi(state) {
@@ -63,16 +74,22 @@ window.imgcpt.invoke('local-api-status').then(function (state) {
   $('apiSwitch').disabled = false;
 }).catch(function (error) { toast('API 配置读取失败：' + error.message); });
 $('apiSwitch').onclick = async function () {
+  apiUpdating = true;
   this.disabled = true;
   try {
     renderLocalApi(await window.imgcpt.invoke('local-api-update', { enabled: !localApiState.enabled }));
     toast(localApiState.enabled ? 'API 已开启：' + localApiState.base_url : 'API 已关闭，已入队任务继续执行');
   } catch (error) { toast('API 切换失败：' + error.message); }
-  finally { this.disabled = false; }
+  finally { apiUpdating = false; this.disabled = false; }
 };
 $('apiSettings').onclick = async function () {
   if (document.getElementById('localApiModal')) return;
-  try { renderLocalApi(await window.imgcpt.invoke('local-api-status')); }
+  var requestedProvider = activeProvider;
+  try {
+    var state = await window.imgcpt.invoke('local-api-status');
+    if (requestedProvider !== activeProvider || providerSwitching) return;
+    renderLocalApi(state);
+  }
   catch (error) { toast(error.message); return; }
   var mask = document.createElement('div');
   mask.id = 'localApiModal';
@@ -159,7 +176,14 @@ function api(path, opts) {
   if (path === '/api/generate') return window.imgcpt.invoke('generate', body || {});
   if (path === '/api/generate/batch') return window.imgcpt.invoke('generate-batch', body || {});
   if (path === '/api/jobs') return window.imgcpt.invoke('jobs');
+  if (path === '/api/queue/status') return window.imgcpt.invoke('queue-status', { provider: activeProvider });
+  if (path === '/api/queue/concurrency') return window.imgcpt.invoke('queue-concurrency', body || {});
+  if (path === '/api/queue/resume') return window.imgcpt.invoke('queue-resume', body || {});
   if (path === '/api/jobs/clear-completed') return window.imgcpt.invoke('clear-completed-jobs');
+  if (path === '/api/jobs/retry-all') return window.imgcpt.invoke('retry-all-jobs', body || {});
+  if (/^\/api\/jobs\/[^/]+\/stop$/.test(path)) {
+    return window.imgcpt.invoke('cancel-running-job', Object.assign({}, body || {}, { job_id: path.split('/')[3] }));
+  }
   if (/^\/api\/jobs\/[^/]+\/retry$/.test(path)) {
     return window.imgcpt.invoke('retry-job', path.split('/')[3]);
   }
@@ -312,20 +336,28 @@ $('appTitlebar').ondblclick = function (event) {
 // ---------------------------------------------------------------------------
 // 登录态
 // ---------------------------------------------------------------------------
+var healthRequestSequence = 0;
 function refreshHealth() {
+  var requestedProvider = activeProvider;
+  var sequence = ++healthRequestSequence;
   api('/api/health').then(function (h) {
+    if (requestedProvider !== activeProvider || sequence !== healthRequestSequence) return;
     var dot = $('loginDot'), txt = $('loginText');
     if (!dot || !txt) return;
+    $('firstUseHint').classList.toggle('hidden', !!h.logged_in);
     if (h.initializing) {
       dot.className = 'dot warn'; txt.textContent = '浏览器启动中…';
     } else if (!h.driver_ready) {
-      dot.className = 'dot warn'; txt.textContent = '浏览器未启动 — 点"显示浏览器"';
+      dot.className = 'dot warn'; txt.textContent = h.browser_connected ? '浏览器已连接，页面未就绪' : '浏览器未启动 — 点"显示浏览器"';
     } else if (h.logged_in) {
-      dot.className = 'dot ok'; txt.textContent = '已登录 ChatGPT';
+      dot.className = 'dot ok'; txt.textContent = '已登录 ' + (activeProvider === 'gemini' ? 'Gemini' : 'ChatGPT');
+    } else if (h.login_unknown) {
+      dot.className = 'dot warn'; txt.textContent = h.login_check_timeout ? '状态检测超时 — 请显示浏览器检查' : '登录状态未确认 — 请显示浏览器检查';
     } else {
       dot.className = 'dot warn'; txt.textContent = '未登录 — 点"显示浏览器"登录';
     }
   }).catch(function () {
+    if (requestedProvider !== activeProvider || sequence !== healthRequestSequence) return;
     var dot = $('loginDot'), txt = $('loginText');
     if (!dot || !txt) return;
     dot.className = 'dot err';
@@ -391,7 +423,9 @@ function updateToggleBrowserBtn(visible) {
   }
 }
 function refreshBrowserState() {
+  var requestedProvider = activeProvider;
   api('/api/browser/state').then(function (s) {
+    if (requestedProvider !== activeProvider) return;
     if (s.ok && s.managed_browser) {
       updateToggleBrowserBtn(s.visible);
       $('toggleBrowserBtn').disabled = false;
@@ -403,6 +437,7 @@ function refreshBrowserState() {
 }
 if (window.imgcpt.onBrowserStateEvent) {
   window.imgcpt.onBrowserStateEvent(function (s) {
+    if (s && s.provider && s.provider !== activeProvider) return;
     if (s && typeof s.visible === 'boolean') updateToggleBrowserBtn(s.visible);
     if (s && s.msg) toast(s.msg);
   });
@@ -428,28 +463,6 @@ $('toggleBrowserBtn').onclick = function () {
   });
 };
 
-// 对话滑块只负责一次性的页面导航；队列始终在当前页面连续执行。
-var chatMode = 'new'; // 当前页面来源(初始化时根据已保存对话覆盖)
-function setChatMode(mode, navigate) {
-  chatMode = mode;
-  document.querySelectorAll('#chatToggle .toggle-opt').forEach(function (x) {
-    x.classList.toggle('active', x.dataset.mode === mode);
-  });
-  if (!navigate) return;
-  if (mode === 'new') {
-    api('/api/chat/new', { method: 'POST' }).then(function (d) {
-      toast(d.ok ? '已进入新对话' : '打开失败: ' + (d.error || ''));
-    }).catch(function (e) { toast('打开失败: ' + e.message); });
-  } else {
-    api('/api/chat/open-last', { method: 'POST' }).then(function (d) {
-      toast(d.ok ? '已打开上次对话' : '打开失败: ' + (d.error || '还没有上次对话'));
-    }).catch(function (e) { toast('打开失败: ' + e.message); });
-  }
-}
-document.querySelectorAll('#chatToggle .toggle-opt').forEach(function (opt) {
-  opt.onclick = function () { setChatMode(opt.dataset.mode, true); };
-});
-
 // ---------------------------------------------------------------------------
 // 生成模式 tab:单图 / 批量 / 图生图
 // ---------------------------------------------------------------------------
@@ -467,7 +480,9 @@ function withSelectedStyle(text) {
   return s;
 }
 function refreshBrowserEngine() {
+  var requestedProvider = activeProvider;
   api('/api/browser/engine').then(function (s) {
+    if (requestedProvider !== activeProvider) return;
     if (s.ok && (s.engine === 'chrome' || s.engine === 'edge')) {
       $('browserEngineSelect').value = s.engine;
     }
@@ -864,7 +879,14 @@ function updateStylePanel() {
 
 $('stylePanel').onclick = openStyleModal;
 
+function showEnqueuedResult(data, message, provider) {
+  if (provider !== activeProvider) return;
+  refreshQueueStatus();
+  toast(data.queue_paused ? message + '，队列已暂停，请点击“继续队列”' : message);
+}
+
 $('batchEnq').onclick = function () {
+  var provider = activeProvider;
   var text = $('batchText').value.trim();
   var ratio = $('batchRatio').value;
   var count = parseInt($('batchCount').value, 10) || 1;
@@ -877,7 +899,7 @@ $('batchEnq').onclick = function () {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: prompt, display_prompt: displayPrompt, count: count })
     }).then(function (d) {
-      toast(count > 1 ? '已加入队列(×' + count + ')' : '已加入队列');
+      showEnqueuedResult(d, count > 1 ? '已加入队列(×' + count + ')' : '已加入队列', provider);
     }).catch(function (e) { toast('加入失败: ' + e.message); });
   } else if (genMode === 'batch') {
     // 批量:按行分割,每行生成 count 张
@@ -890,7 +912,7 @@ $('batchEnq').onclick = function () {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompts: prompts, count: count })
     }).then(function (d) {
-      toast('已加入 ' + d.enqueued + ' 个任务' + (count > 1 ? '(每个×' + count + ')' : ''));
+      showEnqueuedResult(d, '已加入 ' + d.enqueued + ' 个任务' + (count > 1 ? '(每个×' + count + ')' : ''), provider);
     }).catch(function (e) { toast('加入失败: ' + e.message); });
   } else {
     try {
@@ -899,7 +921,7 @@ $('batchEnq').onclick = function () {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompts: imageJobs, count: 1 })
       }).then(function (d) {
-        toast('已加入 ' + d.enqueued + ' 个图生图任务');
+        showEnqueuedResult(d, '已加入 ' + d.enqueued + ' 个图生图任务', provider);
       }).catch(function (e) { toast('加入失败: ' + e.message); });
     } catch (e) {
       toast(e.message || String(e));
@@ -908,7 +930,9 @@ $('batchEnq').onclick = function () {
 };
 
 $('batchClear').onclick = function () {
+  var provider = activeProvider;
   api('/api/jobs/clear-completed', { method: 'POST' }).then(function (d) {
+    if (provider !== activeProvider) return;
     jobs = d.jobs || [];
     renderTable();
   }).catch(function (e) { toast('清空失败: ' + e.message); });
@@ -918,10 +942,43 @@ $('stopBtn').onclick = function () {
     .catch(function (e) { toast('停止失败: ' + e.message); });
 };
 
+var queueStatusSequence = 0;
+function refreshQueueStatus() {
+  var requestedProvider = activeProvider;
+  var sequence = ++queueStatusSequence;
+  api('/api/queue/status').then(function (status) {
+    if (requestedProvider !== activeProvider || sequence !== queueStatusSequence) return;
+    $('queueConcurrency').value = String(status.concurrency);
+    $('queueConcurrency').disabled = status.active > 0;
+    var blocked = status.blocked_slots || [];
+    $('queueResume').classList.toggle('hidden', !status.paused && !blocked.length);
+    $('queueResume').textContent = status.paused ? '继续队列' : '恢复环境';
+    $('queueConcurrencyHint').textContent = status.paused ? '队列已暂停，请检查浏览器' : (blocked.length ? '环境 ' + blocked.join('、') + ' 暂不可用，其他环境继续' : '各环境复用对话 · 参考图依次上传');
+    $('queuePauseNotice').classList.toggle('hidden', !status.paused);
+    $('queuePauseReason').textContent = status.paused
+      ? (status.queued || 0) + ' 个任务等待执行。' + (status.pause_reason || '浏览器状态需要检查。')
+      : '';
+  }).catch(function () {});
+}
+$('queueConcurrency').onchange = function () {
+  var provider = activeProvider;
+  this.disabled = true;
+  api('/api/queue/concurrency', { method: 'POST', body: JSON.stringify({ provider: provider, concurrency: Number(this.value) }) })
+    .then(function (status) { if (provider === activeProvider) toast(status.paused ? '并发设置已保存；队列仍暂停，请点击“继续队列”' : '并发设置已保存'); })
+    .catch(function (error) { if (provider === activeProvider) toast('设置失败: ' + error.message); })
+    .finally(function () { if (provider === activeProvider) refreshQueueStatus(); });
+};
+$('queueResume').onclick = function () {
+  var provider = activeProvider;
+  api('/api/queue/resume', { method: 'POST', body: JSON.stringify({ provider: provider }) }).then(function () { if (provider === activeProvider) { refreshQueueStatus(); toast('队列和环境已恢复'); } })
+    .catch(function (error) { if (provider === activeProvider) toast('继续队列失败: ' + error.message); });
+};
+
 // ---------------------------------------------------------------------------
 // 任务表
 // ---------------------------------------------------------------------------
 var jobs = [];
+var retryAllBusy = false;
 function statusBadge(s) {
   return '<span class="badge ' + s + '">' + (STATUS_LABEL[s] || s) + '</span>';
 }
@@ -984,6 +1041,7 @@ window.openJobReferenceGallery = function (jobId) {
   openReferenceGallery(images, '参考图 (' + images.length + ' 张)');
 };
 function renderTable() {
+  $('retryAllBtn').disabled = retryAllBusy || !jobs.some(function (job) { return job.status === 'failed'; });
   var body = $('batchBody');
   if (!jobs.length) {
     body.innerHTML = '<tr><td colspan="5" class="empty">还没有任务。在上面输入 prompt 后点"加入队列"。</td></tr>';
@@ -1029,10 +1087,10 @@ function renderTable() {
     }
     // 进度文案:运行中的 Job 显示 detail
     var prog = '';
-    var runningJob = g.find(function (j) { return j.status === 'running'; });
-    if (runningJob && runningJob.detail) {
-      prog = '<div class="progress-line">' + esc(runningJob.detail) + '</div>';
-    }
+    prog = g.filter(function (j) { return j.status === 'running' && j.detail; }).map(function (j) {
+      var prefix = j.queue_part ? (j.queue_index + '-' + j.queue_part + '：') : '';
+      return '<div class="progress-line">' + esc(prefix + j.detail) + '</div>';
+    }).join('');
     // 错误文案:失败的 Job 显示 error
     var errLine = '';
     var failedJob = g.find(function (j) { return j.status === 'failed' && j.error; });
@@ -1042,20 +1100,22 @@ function renderTable() {
     // 操作:每个子 Job 独立保存/重试
     var actionsHtml = g.map(function (j, k) {
       var imgs = j.image_paths || [];
-      var copy = '<button class="small" onclick="copyJobPrompt(\'' + j.job_id + '\')">复制提示词' + (isGroup ? (k + 1) : '') + '</button>';
+      var part = isGroup ? (j.queue_part || k + 1) : '';
+      var copy = '<button class="small" onclick="copyJobPrompt(\'' + j.job_id + '\')">复制提示词' + part + '</button>';
       var dl = imgs.length ?
-        '<a class="save-btn" href="' + imgPath(imgs[0]) + '" download target="_blank">保存' + (isGroup ? (k + 1) : '') + '</a>' : '';
+        '<a class="save-btn" href="' + imgPath(imgs[0]) + '" download target="_blank">保存' + part + '</a>' : '';
       var retry = (j.status === 'failed') ?
-        '<button class="small" onclick="retryJob(\'' + j.job_id + '\')">重试' + (isGroup ? (k + 1) : '') + '</button>' : '';
+        '<button class="small" onclick="retryJob(\'' + j.job_id + '\')">重试' + part + '</button>' : '';
       var stop = (j.status === 'queued') ?
-        '<button class="small danger" onclick="stopQueuedJob(\'' + j.job_id + '\')">停止' + (isGroup ? (k + 1) : '') + '</button>' : '';
+        '<button class="small danger" onclick="stopQueuedJob(\'' + j.job_id + '\')">停止' + part + '</button>' : (j.status === 'running' ?
+        '<button class="small danger" ' + (j.stop_requested ? 'disabled' : 'onclick="stopRunningJob(\'' + j.job_id + '\')"') + '>' + (j.stop_requested ? '正在停止…' : '停止' + part) + '</button>' : '');
       var clear = (j.status === 'failed') ?
-        '<button class="small danger" onclick="clearFailedJob(\'' + j.job_id + '\')">清除' + (isGroup ? (k + 1) : '') + '</button>' : '';
+        '<button class="small danger" onclick="clearFailedJob(\'' + j.job_id + '\')">清除' + part + '</button>' : '';
       return copy + dl + retry + stop + clear;
     }).filter(Boolean).join(' ');
     var shownPrompt = jobDisplayPrompt(first);
     // 序号 + ×N badge
-    var idxHtml = (gi + 1) + (isGroup ? '<span class="count-badge">×' + g.length + '</span>' : '');
+    var idxHtml = (first.queue_index || gi + 1) + (isGroup ? '<span class="count-badge">×' + g.length + '</span>' : '');
     html += '<tr class="' + (isGroup ? 'job-group' : '') + '">' +
       '<td>' + idxHtml + '</td>' +
       '<td class="thumb">' + thumbHtml + '</td>' +
@@ -1078,6 +1138,79 @@ window.retryJob = function (jobId) {
   api('/api/jobs/' + jobId + '/retry', { method: 'POST' })
     .then(function () { toast('已重新入队'); })
     .catch(function (e) { toast('重试失败: ' + e.message); });
+};
+$('retryAllBtn').onclick = function () {
+  if (retryAllBusy || !jobs.some(function (job) { return job.status === 'failed'; })) return;
+  var provider = activeProvider;
+  retryAllBusy = true;
+  renderTable();
+  api('/api/jobs/retry-all', { method: 'POST', body: JSON.stringify({ provider: provider }) })
+    .then(function (result) {
+      if (provider !== activeProvider) return;
+      jobs = result.jobs || [];
+      toast(result.retried ? '已将 ' + result.retried + ' 个失败任务重新加入队列' : '没有需要重试的失败任务');
+      refreshQueueStatus();
+    })
+    .catch(function (error) { if (provider === activeProvider) toast('全部重试失败: ' + error.message); })
+    .finally(function () { retryAllBusy = false; renderTable(); });
+};
+
+function confirmStopRunningTask(job, provider) {
+  if (document.querySelector('.task-stop-mask')) return Promise.resolve(false);
+  var previousFocus = document.activeElement;
+  return new Promise(function (resolve) {
+    var mask = document.createElement('div');
+    mask.className = 'style-modal-mask task-stop-mask';
+    mask.innerHTML = '<div class="style-modal task-stop-modal" role="alertdialog" aria-modal="true" aria-labelledby="stopTaskTitle" aria-describedby="stopTaskDescription">' +
+      '<button class="style-modal-close task-stop-close" type="button" aria-label="关闭">×</button>' +
+      '<div class="task-stop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></div>' +
+      '<h2 id="stopTaskTitle">停止这个任务？</h2>' +
+      '<p id="stopTaskDescription">停止后将标记为失败，可稍后重试。其他并发任务会继续执行。</p>' +
+      '<div class="task-stop-summary"><span class="task-stop-label"></span><p class="task-stop-prompt"></p></div>' +
+      '<p class="task-stop-note">将尝试停止网页生成。已发送的请求可能仍会继续；已保存的图片会保留。</p>' +
+      '<div class="task-stop-actions"><button class="task-stop-cancel" type="button">继续生成</button><button class="task-stop-confirm" type="button">停止任务</button></div></div>';
+    var index = String(job.queue_index || '') + (job.queue_part ? '-' + job.queue_part : '');
+    mask.querySelector('.task-stop-label').textContent = (provider === 'gemini' ? 'Gemini' : 'ChatGPT') + ' · 任务 ' + index + (job.worker_slot ? ' · 环境 ' + job.worker_slot : '');
+    mask.querySelector('.task-stop-prompt').textContent = jobDisplayPrompt(job).slice(0, 160);
+    var settled = false;
+    function finish(confirmed) {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('keydown', onKey, true);
+      mask.remove();
+      if (previousFocus && previousFocus.isConnected) previousFocus.focus();
+      resolve(confirmed);
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(false); }
+      if (event.key === 'Tab') {
+        var buttons = Array.from(mask.querySelectorAll('button:not(:disabled)'));
+        var first = buttons[0], last = buttons[buttons.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !mask.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !mask.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+      }
+    }
+    mask.querySelector('.task-stop-close').onclick = function () { finish(false); };
+    mask.querySelector('.task-stop-cancel').onclick = function () { finish(false); };
+    mask.querySelector('.task-stop-confirm').onclick = function () { finish(true); };
+    mask.onclick = function (event) { if (event.target === mask) finish(false); };
+    document.body.appendChild(mask);
+    document.addEventListener('keydown', onKey, true);
+    mask.querySelector('.task-stop-cancel').focus();
+  });
+}
+
+window.stopRunningJob = async function (jobId) {
+  var provider = activeProvider;
+  var job = jobs.find(function (item) { return item.job_id === jobId; });
+  if (!job || job.status !== 'running' || job.stop_requested) return;
+  if (!(await confirmStopRunningTask(job, provider))) return;
+  try {
+    var result = await api('/api/jobs/' + jobId + '/stop', { method: 'POST', body: JSON.stringify({ provider: provider }) });
+    if (provider === activeProvider) toast(result.stop_requested ? '正在停止任务，请稍候' : '任务已结束，无需停止');
+  } catch (error) {
+    if (provider === activeProvider) toast('停止失败: ' + error.message);
+  }
 };
 window.stopQueuedJob = function (jobId) {
   api('/api/jobs/' + jobId + '/cancel', { method: 'POST' })
@@ -1111,6 +1244,8 @@ window.copyJobPrompt = function (jobId) {
 // ---------------------------------------------------------------------------
 function connectSSE() {
   window.imgcpt.onQueueEvent(function (data) {
+    if (data.provider && data.provider !== activeProvider) return;
+    if (data.type === 'queue_state' || data.type === 'job_added' || data.type === 'job_updated') refreshQueueStatus();
     if (data.type === 'job_added' || data.type === 'job_updated') {
       upsertJob(data.job);
     } else if (data.type === 'job_removed') {
@@ -1119,6 +1254,7 @@ function connectSSE() {
     } else if (data.type === 'progress') {
       for (var i = 0; i < jobs.length; i++) {
         if (jobs[i].job_id === data.job_id) {
+          if (jobs[i].stop_requested || jobs[i].status !== 'running') break;
           jobs[i].stage = data.stage;
           jobs[i].detail = data.detail;
           if (jobs[i].status !== 'running') jobs[i].status = 'running';
@@ -1133,16 +1269,58 @@ function connectSSE() {
 // ---------------------------------------------------------------------------
 // 初始化:拉一次快照 + 连 SSE + 检查登录
 // ---------------------------------------------------------------------------
-api('/api/jobs').then(function (d) {
-  if (d.jobs) { jobs = d.jobs; renderTable(); }
-}).catch(function () {});
 connectSSE();
-refreshHealth();
-setInterval(refreshHealth, 30000);
-refreshBrowserState();  // 查询浏览器窗口初始显示状态
-refreshBrowserEngine();
-// 初始化对话模式:有上次对话记忆则选中"上次对话",否则"新对话"
-// 注意:不触发导航,因为 driver init 时已经根据记忆加载了对应 URL
-api('/api/chat/status').then(function (s) {
-  setChatMode(s.has_memory ? 'last' : 'new', false);
-}).catch(function () { setChatMode('new', false); });
+setInterval(refreshHealth, 10000);
+async function selectProvider(next, initial) {
+  if (providerSwitching || (!initial && (next === activeProvider || browserToggleBusy || $('browserEngineSelect').disabled || apiUpdating))) return;
+  if (!initial && document.querySelector('.api-modal, .task-stop-modal')) { toast('请先关闭当前弹窗'); return; }
+  providerSwitching = true;
+  document.querySelectorAll('#providerTabs .provider-tab').forEach(function (tab) { tab.disabled = true; });
+  providerDrafts[activeProvider] = { prompt: $('batchText').value, additional: $('additionalPromptText').value, expanded: $('additionalPromptPanel').open, ratio: $('batchRatio').value, count: $('batchCount').value, mode: genMode, images: inputImages, selectedImageId: selectedImageId, style: selectedStyle };
+  var previous = activeProvider;
+  var switched = false;
+  var apiReady = false;
+  try {
+    await window.imgcpt.invoke('provider-select', next);
+    activeProvider = next;
+    switched = true;
+    try { localStorage.setItem('imgcpt_provider', next); } catch (e) {}
+    var draft = providerDrafts[next] || { prompt: '', additional: '', expanded: false, ratio: 'auto', count: '1', mode: 'single', images: [], selectedImageId: null, style: null };
+    $('batchText').value = draft.prompt;
+    $('additionalPromptText').value = draft.additional;
+    $('additionalPromptPanel').open = draft.expanded;
+    $('batchRatio').value = draft.ratio;
+    $('batchCount').value = draft.count;
+    inputImages = draft.images;
+    selectedImageId = draft.selectedImageId;
+    selectedStyle = draft.style;
+    setGenMode(draft.mode);
+    renderImageRefs();
+    updateAdditionalPromptState();
+    updateStylePanel();
+    document.querySelectorAll('#providerTabs .provider-tab').forEach(function (tab) { tab.classList.toggle('active', tab.dataset.provider === next); });
+    $('providerNotice').textContent = '⚠️ 请勿直接关闭 ' + (next === 'gemini' ? 'Gemini' : 'ChatGPT') + ' 浏览器窗口 — 如需隐藏请点击“隐藏浏览器”按钮。切换 Chrome / Edge 会关闭当前平台的受控浏览器。';
+    $('toggleBrowserBtn').title = '显示/隐藏所选浏览器的 ' + (next === 'gemini' ? 'Gemini' : 'ChatGPT') + ' 窗口';
+    jobs = [];
+    renderTable();
+    var result = await api('/api/jobs');
+    if (activeProvider === next && result.jobs) { jobs = result.jobs; renderTable(); }
+    if (activeProvider !== next) return;
+    refreshHealth();
+    refreshBrowserState();
+    refreshBrowserEngine();
+    refreshQueueStatus();
+  } catch (error) {
+    if (!switched) activeProvider = previous;
+    toast((switched ? '平台已切换，刷新状态失败: ' : '切换平台失败: ') + error.message);
+  } finally {
+    providerSwitching = false;
+    document.querySelectorAll('#providerTabs .provider-tab').forEach(function (tab) { tab.disabled = false; });
+  }
+}
+document.querySelectorAll('#providerTabs .provider-tab').forEach(function (tab) {
+  tab.onclick = function () { selectProvider(tab.dataset.provider, false); };
+});
+var initialProvider = 'chatgpt';
+try { if (localStorage.getItem('imgcpt_provider') === 'gemini') initialProvider = 'gemini'; } catch (e) {}
+selectProvider(initialProvider, true);

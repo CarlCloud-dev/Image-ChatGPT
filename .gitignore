@@ -1,11 +1,19 @@
 # runtime state
 browser_profile/
 browser_profile_edge/
+browser_profile_gemini_chrome/
+browser_profile_gemini_edge/
 electron_runtime/
 output/
 config/chat_state.json
 config/queue_state.json
 config/local_api.json
+config/gemini/
+config/gemini_state.json
+config/gemini_queue_state.json
+config/snapshots/
+server/data/
+server/test-results/
 logs/
 .runtime-preserve/
 

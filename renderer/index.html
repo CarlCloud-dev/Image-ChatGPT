@@ -28,10 +28,15 @@
 <body>
 
 <div class="app-titlebar" id="appTitlebar">
-  <div class="titlebar-brand">
-    <img src="../web-image-100.png" alt="">
-    <span class="titlebar-title">Image-ChatGPT</span>
+  <div class="local-api-widget titlebar-api-widget">
+    <span>API</span>
+    <button id="apiSwitch" class="api-switch" type="button" role="switch" aria-checked="false" aria-label="开启本地 API" title="开启本地 API"><span></span></button>
+    <button id="apiSettings" class="api-settings" type="button" title="API 配置" aria-label="API 配置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-.7 3-2.7 1.5-2.9-.9-1.4 2.4 2.2 2.1v3l-2.2 2.1 1.4 2.4 2.9-.9L8.3 19l.7 3h3l.7-3 2.7-1.5 2.9.9 1.4-2.4-2.2-2.1v-3l2.2-2.1-1.4-2.4-2.9.9L12.7 6 12 3z"/><circle cx="10.5" cy="12.5" r="3"/></svg></button>
   </div>
+  <nav class="provider-tabs" id="providerTabs" aria-label="生成平台">
+    <button type="button" class="provider-tab active" data-provider="chatgpt">ChatGPT</button>
+    <button type="button" class="provider-tab" data-provider="gemini">Gemini</button>
+  </nav>
   <div class="titlebar-drag"></div>
   <div class="titlebar-controls">
     <button id="winMinBtn" class="titlebar-btn" type="button" title="最小化" aria-label="最小化">
@@ -53,21 +58,12 @@
     <span id="firstUseHint" class="first-use-hint">未登录?点击右侧"显示浏览器"登录账号</span>
   </div>
   <div class="spacer"></div>
-  <div class="local-api-widget">
-    <span>API</span>
-    <button id="apiSwitch" class="api-switch" type="button" role="switch" aria-checked="false" aria-label="开启本地 API" title="开启本地 API"><span></span></button>
-    <button id="apiSettings" class="api-settings" type="button" title="API 配置" aria-label="API 配置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-.7 3-2.7 1.5-2.9-.9-1.4 2.4 2.2 2.1v3l-2.2 2.1 1.4 2.4 2.9-.9L8.3 19l.7 3h3l.7-3 2.7-1.5 2.9.9 1.4-2.4-2.2-2.1v-3l2.2-2.1-1.4-2.4-2.9.9L12.7 6 12 3z"/><circle cx="10.5" cy="12.5" r="3"/></svg></button>
-  </div>
   <button id="setOutputBtn" class="small" title="设置图片保存目录(默认为 exe 同级 output/)">保存目录</button>
   <button id="openOutputBtn" class="small" title="在系统资源管理器中打开当前保存目录">打开图片目录</button>
   <select id="browserEngineSelect" class="browser-engine-select" title="选择用于登录和生成的浏览器">
     <option value="chrome">Chrome</option>
     <option value="edge">Edge</option>
   </select>
-  <div class="toggle" id="chatToggle">
-    <div class="toggle-opt" data-mode="new">新对话</div>
-    <div class="toggle-opt" data-mode="last">上次对话</div>
-  </div>
   <button id="toggleBrowserBtn" class="small" title="显示/隐藏所选浏览器的 ChatGPT 窗口">显示浏览器</button>
   <div class="toggle" id="themeToggle" title="切换浅色/深色主题">
     <div class="toggle-opt" data-theme="light">
@@ -79,7 +75,7 @@
   </div>
 </header>
 
-<div class="notice">
+<div class="notice" id="providerNotice">
   ⚠️ 请勿直接关闭 ChatGPT 浏览器窗口 — 如需隐藏请点击“隐藏浏览器”按钮。切换 Chrome / Edge 会关闭当前受控浏览器。
 </div>
 
@@ -154,9 +150,21 @@
   <div class="panel" style="margin-top:16px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       <label style="margin:0;font-size:14px;color:var(--text);font-weight:600">任务队列</label>
+      <label for="queueConcurrency" style="margin:0;font-size:12px">并发</label>
+      <select id="queueConcurrency" class="browser-engine-select" title="每个环境首次任务创建新对话，后续任务复用该会话；请在任务空闲时修改">
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+      </select>
+      <span id="queueConcurrencyHint" style="font-size:12px;color:var(--text-dim)"></span>
       <div class="spacer" style="flex:1"></div>
+      <button id="retryAllBtn" class="small" type="button" disabled title="将所有失败和已停止的任务重新加入队列">全部重试</button>
+      <button id="queueResume" class="small primary hidden" type="button" title="检查浏览器后继续派发排队任务">继续队列</button>
       <button id="batchClear" class="small">清空已完成</button>
       <button id="stopBtn" class="small danger">停止队列</button>
+    </div>
+    <div id="queuePauseNotice" class="queue-pause-notice hidden" role="status" aria-live="polite">
+      <strong>队列已暂停</strong>
+      <span id="queuePauseReason"></span>
+      <span>检查浏览器后，点击上方“继续队列”开始执行。</span>
     </div>
     <table id="batchTable">
       <thead>

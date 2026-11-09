@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image ChatGPT · 管理</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><span class="eyebrow">IMAGE SERVICE</span><h1>图片生成服务</h1><p>管理 ChatGPT、Gemini 账号及图片生成 API。</p></div><span id="connection" class="badge">未连接</span></header>
+    <section id="login" class="card">
+      <h2>访问服务</h2><p>请输入访问密码。首次登录使用原有 API 密钥，之后可以设置自己的访问密码。</p>
+      <div class="row"><input id="key" type="password" autocomplete="current-password" placeholder="访问密码"><button id="connect">登录</button></div>
+    </section>
+    <div id="dashboard" hidden>
+      <section class="card"><div class="heading"><div><h2>API 服务</h2><p id="api-status">已关闭</p></div><button id="toggle-api">开启 API</button></div><p class="hint">服务重启后需手动开启。生成图片保留 2 小时，请及时下载。</p></section>
+      <section class="card providers-card">
+        <div class="providers-heading"><div><h2>生成服务</h2><p>账号与并发设置</p></div><span class="providers-caption">各平台独立运行</span></div>
+        <div class="provider-grid">
+          <article class="provider-item">
+            <div class="provider-top"><div class="provider-identity"><span class="provider-logo chatgpt-logo" aria-hidden="true">C</span><div><h3>ChatGPT</h3><span id="chatgpt-login" class="provider-login">等待检查</span></div></div><button data-browser="chatgpt" class="provider-open">打开浏览器 <span aria-hidden="true">↗</span></button></div>
+            <div class="provider-bottom"><p id="chatgpt-status" class="provider-queue">等待检查</p><div class="provider-concurrency"><label for="concurrency-chatgpt">并发</label><select id="concurrency-chatgpt" data-concurrency="chatgpt" aria-label="ChatGPT 并发数"><option value="1">1 个环境</option><option value="2">2 个环境</option><option value="3">3 个环境</option><option value="4">4 个环境</option><option value="5">5 个环境</option></select></div></div>
+          </article>
+          <article class="provider-item">
+            <div class="provider-top"><div class="provider-identity"><span class="provider-logo gemini-logo" aria-hidden="true">✦</span><div><h3>Gemini</h3><span id="gemini-login" class="provider-login">等待检查</span></div></div><button data-browser="gemini" class="provider-open">打开浏览器 <span aria-hidden="true">↗</span></button></div>
+            <div class="provider-bottom"><p id="gemini-status" class="provider-queue">等待检查</p><div class="provider-concurrency"><label for="concurrency-gemini">并发</label><select id="concurrency-gemini" data-concurrency="gemini" aria-label="Gemini 并发数"><option value="1">1 个环境</option><option value="2">2 个环境</option><option value="3">3 个环境</option><option value="4">4 个环境</option><option value="5">5 个环境</option></select></div></div>
+          </article>
+        </div>
+        <p class="provider-note">并发选择后自动保存；每个环境完成 30 个任务或满 2 小时后更换会话。异常任务自动重置环境。</p>
+      </section>
+      <section id="desktop-section" class="card" hidden><div class="heading"><h2>登录浏览器</h2><button id="close-desktop" class="secondary">收起浏览器</button></div><iframe id="desktop" title="账号登录浏览器"></iframe><p class="hint">两个平台使用独立浏览器账号；点击对应平台按钮可切换显示。</p></section>
+      <section class="card"><div class="heading"><div><h2>API 接入</h2><p>以下信息可供其他应用或 Agent 调用。</p></div><button id="copy-guide" class="secondary">复制完整接入说明</button></div><label for="api-url">API URL</label><div class="row"><input id="api-url" class="copy-field" type="text" readonly><button id="copy-url" class="secondary">复制</button></div><label for="api-key">API Key</label><div class="row"><input id="api-key" class="copy-field" type="password" readonly><button id="toggle-key" class="secondary">显示</button><button id="copy-api-key" class="secondary">复制</button></div><p class="hint">复制完整说明会包含 API Key，请只提供给可信的应用或 Agent。</p><pre id="api-guide" class="guide"></pre></section>
+      <section class="card"><h2>访问密码</h2><p id="password-hint">可设置自己的访问密码，之后只需用该密码打开网页。</p><div class="row"><input id="new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="新访问密码（至少 8 位）"><input id="confirm-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="再次输入新密码"><button id="save-password" class="secondary">设置密码</button><button id="logout" class="secondary">退出登录</button></div></section>
+    </div>
+    <div id="notice" role="status" aria-live="polite"></div>
+  </main>
+</body>
+</html>

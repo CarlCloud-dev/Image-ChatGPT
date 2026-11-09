@@ -1,0 +1,34 @@
+services:
+  image-api:
+    image: mcr.microsoft.com/playwright:v1.62.1-noble
+    hostname: image-chatgpt
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - "seccomp=${IMAGE_SECCOMP_PATH:-/srv/image-chatgpt/server/seccomp_profile.json}"
+    working_dir: /app
+    entrypoint: ["/bin/sh", "/app/server/entrypoint.sh"]
+    environment:
+      DISPLAY: ":99"
+      IMAGE_DATA_DIR: /data
+      IMAGE_CHATGPT_CHROME_PATH: /usr/bin/google-chrome-stable
+    shm_size: 512m
+    mem_limit: 2560m
+    memswap_limit: 4g
+    cpus: 1.5
+    volumes:
+      - ./data:/data
+      - ../electron:/app/electron:ro
+      - ../config/selectors.json:/app/config/selectors.json:ro
+      - ./:/app/server:ro
+      - ../package.json:/app/package.json:ro
+      - ../package-lock.json:/app/package-lock.json:ro
+      - image-node-modules:/app/node_modules
+    networks:
+      - licensing-edge
+    stop_grace_period: 30s
+networks:
+  licensing-edge:
+    external: true
+volumes:
+  image-node-modules:

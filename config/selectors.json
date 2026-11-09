@@ -38,7 +38,7 @@
   },
 
   "attachment_file_input": {
-    "_comment": "图片/附件上传 input。所选 Chrome 或 Edge 会通过 DevTools 接口向隐藏 input 写入文件。",
+    "_comment": "沿用原版上传控件优先级，通过 DevTools 向首个匹配的隐藏 input 批量写入原始文件；等待全部附件就绪后才发送。",
     "selectors": [
       "input[type='file'][accept*='image']",
       "input[type='file'][accept*='png']",
@@ -62,7 +62,7 @@
   },
 
   "attachment_uploading": {
-    "_comment": "上传中状态兜底检测。匹配不到时会按固定等待时间继续。",
+    "_comment": "旧版上传状态选择器。驱动以当前输入区的附件总数、就绪数量和精确上传状态为准，超时会阻止发送。",
     "selectors": [
       "[aria-label*='上传中']",
       "[aria-label*='正在上传']",
@@ -116,20 +116,20 @@
     "page_ready_stable_rounds": 3,
     "new_chat_page_settle": 3,
     "new_chat_page_stable_rounds": 4,
-    "generation_timeout": 300,
-    "image_appear_poll_interval": 1.5,
+    "generation_timeout": 600,
+    "image_appear_poll_interval": 0.8,
     "send_confirm_timeout": 12,
-    "no_image_response_delay": 15,
+    "no_image_response_delay": 90,
     "post_generation_settle": 3,
     "post_generation_timeout": 45,
-    "after_send_settle": 2,
-    "after_upload_settle": 3,
-    "upload_timeout": 45
+    "after_send_settle": 1,
+    "after_upload_settle": 0.5,
+    "upload_timeout": 120
   },
 
   "batch": {
     "concurrency": 1,
-    "_comment": "并发数。网页版 ChatGPT 同时开多对话易触发风控,默认 1(顺序)。想加速最多开到 2"
+    "_comment": "默认并发数为 1；可在应用内设置 1 到 5 个环境。"
   },
 
   "browser": {

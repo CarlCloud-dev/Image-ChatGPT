@@ -8,7 +8,14 @@ const outDir = path.join(outRoot, "Image-ChatGPT");
 const legacyOutDir = path.join(outRoot, "Image-ChatGPT-win32-x64");
 const appDir = path.join(outDir, "resources", "app");
 const preserveDir = path.join(outRoot, ".runtime-preserve");
-const runtimeDirs = ["browser_profile", "browser_profile_edge", "output", "config"];
+const runtimeDirs = [
+  "browser_profile",
+  "browser_profile_edge",
+  "browser_profile_gemini_chrome",
+  "browser_profile_gemini_edge",
+  "output",
+  "config",
+];
 const cleanRuntime = process.argv.includes("--clean-runtime");
 const electronMirror = "https://npmmirror.com/mirrors/electron/";
 const electronBuilderMirror = "https://npmmirror.com/mirrors/electron-builder-binaries/";
@@ -204,6 +211,8 @@ copyFile(path.join(root, "config", "styles.json"), path.join(appDir, "config", "
 copyFile(path.join(root, "web-image-100.ico"), path.join(appDir, "web-image-100.ico"));
 copyFile(path.join(root, "web-image-100.png"), path.join(appDir, "web-image-100.png"));
 copyFile(path.join(root, "README.md"), path.join(appDir, "README.md"));
+copyFile(path.join(root, "scripts", "snapshot-manager.js"), path.join(outDir, "scripts", "snapshot-manager.js"));
+copyFile(path.join(root, "账号快照管理.bat"), path.join(outDir, "账号快照管理.bat"));
 fs.mkdirSync(path.join(appDir, "node_modules"), { recursive: true });
 copy(path.join(root, "node_modules", "playwright-core"), path.join(appDir, "node_modules", "playwright-core"));
 
@@ -225,6 +234,15 @@ if (!cleanRuntime) {
   }
   if (!fs.existsSync(path.join(outDir, "browser_profile_edge"))) {
     copyIfExists(path.join(root, "browser_profile_edge"), path.join(outDir, "browser_profile_edge"));
+  }
+  if (!fs.existsSync(path.join(outDir, "browser_profile_gemini_chrome"))) {
+    copyIfExists(path.join(root, "browser_profile_gemini_chrome"), path.join(outDir, "browser_profile_gemini_chrome"));
+  }
+  if (!fs.existsSync(path.join(outDir, "browser_profile_gemini_edge"))) {
+    copyIfExists(path.join(root, "browser_profile_gemini_edge"), path.join(outDir, "browser_profile_gemini_edge"));
+  }
+  if (!fs.existsSync(path.join(outDir, "config", "snapshots")) && fs.existsSync(path.join(root, "config", "snapshots"))) {
+    copyIfExists(path.join(root, "config", "snapshots"), path.join(outDir, "config", "snapshots"));
   }
 }
 fs.rmSync(preserveDir, { recursive: true, force: true });

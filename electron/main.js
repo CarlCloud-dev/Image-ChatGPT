@@ -3,6 +3,7 @@ const path = require("path");
 const { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell, Tray } = require("electron");
 const { paths, fileUrl } = require("./paths");
 const { ChatGPTDriver } = require("./chatgptDriver");
+const { GeminiDriver } = require("./geminiDriver");
 const { QueueManager } = require("./queueManager");
 const { LocalApi } = require("./localApi");
 const logger = require("./logger");
@@ -14,6 +15,24 @@ let driver = null;
 let queue = null;
 let localApi = null;
 let p = null;
+let activeProvider = "chatgpt";
+const providers = {};
+const loginProbes = new WeakMap();
+
+async function probeLogin(driverToCheck) {
+  if (!driverToCheck.hasLivePage()) return null;
+  const page = driverToCheck.page;
+  let pending = loginProbes.get(page);
+  if (!pending) {
+    pending = Promise.resolve().then(() => driverToCheck.isLoggedIn({ start: false })).then(value => !!value, () => null);
+    loginProbes.set(page, pending);
+    pending.then(() => { if (loginProbes.get(page) === pending) loginProbes.delete(page); });
+  }
+  let timer;
+  try {
+    return await Promise.race([pending, new Promise(resolve => { timer = setTimeout(() => resolve(null), 4000); })]);
+  } finally { clearTimeout(timer); }
+}
 
 function sendQueueEvent(event) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -80,7 +99,7 @@ function setTrayMenu(browserVisible = false) {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "打开界面", click: showWindow },
     {
-      label: browserVisible ? "隐藏 ChatGPT 浏览器" : "显示 ChatGPT 浏览器",
+      label: `${browserVisible ? "隐藏" : "显示"} ${activeProvider === "gemini" ? "Gemini" : "ChatGPT"} 浏览器`,
       click: () => {
         toggleBrowserWindow().catch((e) => {
           sendBrowserStateEvent({ ok: false, visible: browserVisible, msg: e.message || "切换失败" });
@@ -111,8 +130,10 @@ async function refreshTrayMenu() {
 }
 
 async function toggleBrowserWindow({ notify = true } = {}) {
+  const current = driver;
+  const provider = activeProvider;
   logger.info("browser.toggle.request", { notify });
-  const result = await driver.toggleWindow();
+  const result = { ...await current.toggleWindow(), provider };
   logger.info("browser.toggle.result", result);
   await refreshTrayMenu();
   if (notify) sendBrowserStateEvent(result);
@@ -131,9 +152,9 @@ function createTray() {
 
 async function shutdown() {
   logger.info("app.shutdown.start");
-  if (queue) queue.stop();
+  for (const item of Object.values(providers)) item.queue.shutdown();
   if (localApi) await localApi.stop();
-  if (driver) await driver.close();
+  await Promise.all(Object.values(providers).map(item => item.driver.close()));
   logger.info("app.shutdown.done");
 }
 
@@ -144,19 +165,42 @@ function requestQuit() {
 }
 
 function registerIpc() {
+  ipcMain.handle("provider-select", (_event, value) => {
+    const next = value === "gemini" ? "gemini" : "chatgpt";
+    activeProvider = next;
+    driver = providers[next].driver;
+    queue = providers[next].queue;
+    refreshTrayMenu().catch(() => {});
+    return { ok: true, provider: next };
+  });
   ipcMain.handle("local-api-status", () => localApi.status());
   ipcMain.handle("local-api-update", (_event, body) => localApi.update(body || {}));
   ipcMain.handle("file-url", (_event, filePath) => fileUrl(filePath));
   ipcMain.handle("styles", () => loadStyles());
-  ipcMain.handle("health", async () => ({
-    ok: true,
-    driver_ready: driver.hasLivePage(),
-    initializing: driver.isInitializing(),
-    logged_in: await driver.isLoggedIn({ start: false }),
-    last_error: driver.lastInitError,
-    login_url: driver.cfg.login_url,
-    page_url: driver.pageUrl() || null,
-  }));
+  ipcMain.handle("health", async () => {
+    const current = driver;
+    const currentQueue = queue;
+    const seen = new Set();
+    const candidates = [current, ...currentQueue.healthWorkers()].filter(item => {
+      if (!item.hasLivePage() || seen.has(item.page)) return false;
+      seen.add(item.page);
+      return true;
+    });
+    const states = await Promise.all(candidates.map(probeLogin));
+    const loggedIn = states.some(state => state === true);
+    return {
+      ok: true,
+      driver_ready: candidates.length > 0,
+      browser_connected: !!(current.browser && current.browser.isConnected()),
+      initializing: current.isInitializing(),
+      logged_in: loggedIn,
+      login_unknown: !loggedIn && candidates.length > 0,
+      login_check_timeout: !loggedIn && states.some(state => state === null),
+      last_error: current.lastInitError,
+      login_url: current.cfg.login_url,
+      page_url: current.pageUrl() || null,
+    };
+  });
   ipcMain.handle("open-output-dir", () => {
     fs.mkdirSync(driver.outputDir(), { recursive: true });
     shell.openPath(driver.outputDir());
@@ -188,12 +232,19 @@ function registerIpc() {
   });
   ipcMain.handle("browser-toggle", async () => toggleBrowserWindow({ notify: false }));
   ipcMain.handle("browser-state", async () => {
-    const visible = await driver.isWindowVisible();
+    const current = driver;
+    const visible = await current.isWindowVisible();
     refreshTrayMenu().catch(() => {});
     return { ok: true, visible, managed_browser: true };
   });
   ipcMain.handle("browser-engine", async (_event, body) => {
-    const engine = body && body.engine ? await driver.setBrowserEngine(body.engine) : driver.getBrowserEngine();
+    const current = driver;
+    const currentQueue = queue;
+    if (body && body.engine && body.engine !== current.getBrowserEngine()) {
+      if (currentQueue.status().active) throw new Error("正在生成中，不能切换浏览器");
+      return { ok: true, engine: await currentQueue.switchBrowserEngine(body.engine) };
+    }
+    const engine = body && body.engine ? await current.setBrowserEngine(body.engine) : current.getBrowserEngine();
     return { ok: true, engine };
   });
   ipcMain.handle("chat-new", async () => ({ ok: true, url: await driver.openNewChat(), msg: "已新建对话" }));
@@ -209,7 +260,9 @@ function registerIpc() {
     }], { chatMode: "reuse", count: Math.max(1, Math.min(4, Number(req.count || 1))) });
     logger.info("queue.enqueue.single", { jobs: jobs.map((j) => j.job_id), count: jobs.length, chatMode: "reuse" });
     queue.start();
-    return jobs.length > 1 ? { enqueued: jobs.length, jobs: jobs.map((j) => j.job_id) } : { job_id: jobs[0].job_id, status: jobs[0].status };
+    const state = queue.status();
+    const result = jobs.length > 1 ? { enqueued: jobs.length, jobs: jobs.map((j) => j.job_id) } : { job_id: jobs[0].job_id, status: jobs[0].status };
+    return { ...result, queue_paused: state.paused, pause_reason: state.pause_reason };
   });
   ipcMain.handle("generate-batch", (_event, req) => {
     const prompts = req && Array.isArray(req.prompts) ? req.prompts : [];
@@ -217,14 +270,35 @@ function registerIpc() {
     const jobs = queue.enqueueMany(prompts, { chatMode: "reuse", count: Math.max(1, Math.min(4, Number(req.count || 1))) });
     logger.info("queue.enqueue.batch", { jobs: jobs.map((j) => j.job_id), count: jobs.length, chatMode: "reuse" });
     queue.start();
-    return { enqueued: jobs.length, jobs: jobs.map((j) => j.job_id) };
+    const state = queue.status();
+    return { enqueued: jobs.length, jobs: jobs.map((j) => j.job_id), queue_paused: state.paused, pause_reason: state.pause_reason };
   });
   ipcMain.handle("jobs", () => ({ jobs: queue.snapshot() }));
+  ipcMain.handle("queue-status", (_event, body) => (providers[body?.provider]?.queue || queue).status());
+  ipcMain.handle("queue-concurrency", (_event, body) => {
+    const current = providers[body?.provider]?.queue || queue;
+    current.setConcurrency(body && body.concurrency);
+    return current.status();
+  });
+  ipcMain.handle("queue-resume", (_event, body) => (providers[body?.provider]?.queue || queue).resume());
   ipcMain.handle("clear-completed-jobs", () => ({ jobs: queue.clearCompleted() }));
   ipcMain.handle("retry-job", (_event, jobId) => {
     const job = queue.retry(jobId);
     if (!job) throw new Error("任务不存在");
     return { job_id: job.job_id, status: job.status };
+  });
+  ipcMain.handle("retry-all-jobs", (_event, body) => {
+    const current = providers[body?.provider]?.queue;
+    if (!current) throw new Error("生成平台无效");
+    const jobs = current.retryAll();
+    return { retried: jobs.length, jobs: current.snapshot() };
+  });
+  ipcMain.handle("cancel-running-job", (_event, body) => {
+    const current = providers[body?.provider]?.queue;
+    if (!current) throw new Error("生成平台无效");
+    const job = current.cancelRunning(body?.job_id);
+    if (!job) throw new Error("任务不存在");
+    return { job_id: job.job_id, status: job.status, stop_requested: !!job.stop_requested };
   });
   ipcMain.handle("cancel-queued-job", (_event, jobId) => {
     const job = queue.cancelQueued(jobId);
@@ -277,14 +351,21 @@ if (!gotLock) {
     p = paths();
     logger.init(p.logFile);
     logger.info("app.ready", { packaged: app.isPackaged, dataRoot: p.dataRoot });
-    driver = new ChatGPTDriver(p);
-    driver.setPageHideWindowHandler(async () => {
-      await refreshTrayMenu();
-      sendBrowserStateEvent({ ok: true, visible: false, msg: "浏览器已完全隐藏，任务继续执行" });
-    });
-    queue = new QueueManager(driver, { stateFile: p.queueStateJson });
-    localApi = new LocalApi(queue, p.configDir);
-    queue.on("event", sendQueueEvent);
+    const chatDriver = new ChatGPTDriver(p);
+    const geminiPaths = { ...p, stateJson: path.join(p.configDir, "gemini_state.json"), outputDir: path.join(p.outputDir, "Gemini") };
+    const geminiDriver = new GeminiDriver(geminiPaths);
+    providers.chatgpt = { driver: chatDriver, queue: new QueueManager(chatDriver, { stateFile: p.queueStateJson }) };
+    providers.gemini = { driver: geminiDriver, queue: new QueueManager(geminiDriver, { stateFile: path.join(p.configDir, "gemini_queue_state.json") }) };
+    driver = chatDriver;
+    queue = providers.chatgpt.queue;
+    localApi = new LocalApi(providers, p.configDir, { defaultPort: 8765, getActiveProvider: () => activeProvider });
+    for (const [provider, item] of Object.entries(providers)) {
+      item.queue.on("event", event => sendQueueEvent({ ...event, provider }));
+      item.driver.setPageHideWindowHandler(async () => {
+        if (activeProvider === provider) await refreshTrayMenu();
+        sendBrowserStateEvent({ ok: true, visible: false, provider, msg: "浏览器已完全隐藏，任务继续执行" });
+      });
+    }
     registerIpc();
     await createWindow();
     createTray();
